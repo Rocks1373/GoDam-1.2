@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <title>Delivery Note</title>
+  <link rel="stylesheet" th:href="@{/css/print.css}" href="/css/print.css" />
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand-block">
+      <div class="logo-wrap">°GAPP</div>
+      <div class="brand-text">
+        <div class="brand-name">Gulf Applications</div>
+        <div class="brand-line">Apartment 5001, 50th Floor, Kingdom Tower</div>
+        <div class="brand-line">P.O Box 89098, Riyadh, Saudi Arabia</div>
+        <div class="brand-line">Tel.: +966 1147 28 256</div>
+        <div class="brand-line">Fax: +966 1147 81503</div>
+        <div class="brand-line">http://www.gapp.sa</div>
+      </div>
+
+      <div class="project-banner" th:if="${options.showProject}">
+        <div class="project-line">
+          <span class="meta-label-inline">Project:</span>
+          <span th:text="${dn.projectName}">Project Name</span>
+        </div>
+        <div class="project-line" th:if="${options.showPayment}">
+          <span class="meta-label-inline">Payment Terms:</span>
+          <span th:text="${dn.paymentTerms}">Payment terms</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <div class="doc-title">Delivery Note</div>
+
+      <table class="summary">
+        <tr class="field-row">
+          <td class="label">DATE</td>
+          <td class="value" th:text="${dn.date}">01/01/2024</td>
+        </tr>
+        <tr class="field-row">
+          <td class="label">OUTBOUND</td>
+          <td class="value" th:text="${dn.outboundNumber}">OUT-0000</td>
+        </tr>
+        <tr class="field-row">
+          <td class="label">GAPP PO</td>
+          <td class="value" th:text="${dn.gappPo}">SO-00000</td>
+        </tr>
+        <tr class="field-row">
+          <td class="label">CUSTOMER PO</td>
+          <td class="value" th:text="${dn.customerPo}">PO-00000</td>
+        </tr>
+        <tr class="field-row">
+          <td class="label">INVOICE</td>
+          <td class="value" th:text="${dn.invoice}">INV-0000</td>
+        </tr>
+      </table>
+
+      <table class="product-summary">
+        <tr class="field-row">
+          <td class="label">Product</td>
+          <td class="value" th:text="${dn.productName}">Product</td>
+        </tr>
+      </table>
+
+      <div class="sales-panel" th:if="${options.showSalesman}">
+        <div class="sales-title">Sales Details</div>
+        <div class="sales-line"><span class="meta-label-inline">Salesman:</span><span th:text="${dn.salesName}">Name</span></div>
+        <div class="sales-line"><span class="meta-label-inline">Phone:</span><span th:text="${dn.salesPhone}">+966 500 000 000</span></div>
+        <div class="sales-line"><span class="meta-label-inline">Email:</span><span th:text="${dn.salesEmail}">sales@example.com</span></div>
+      </div>
+
+      <div class="qr-box" th:if="${options.showQr}">
+        <div>QR</div>
+        <div th:text="${dn.dnNumber != null ? dn.dnNumber : dn.outboundNumber}">DN-REF</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="delivery-row">
+    <div class="delivery-block">
+      <div class="label">Delivery to:</div>
+      <div class="value" th:text="${dn.customerName}">Company Name Pvt Ltd</div>
+      <div class="address" th:text="${dn.address}">Address</div>
+      <div class="address" style="font-size:11px; margin-top:4px;" th:text="${dn.googleLocation}">Google location link</div>
+
+      <div class="receiver-contacts">
+        <div class="receiver">
+          <div class="name" th:text="${dn.receiver1Name}">Receiver 1</div>
+          <div class="phone" th:text="${dn.receiver1Phone}">+966 500 000 000</div>
+        </div>
+        <div class="receiver">
+          <div class="name" th:text="${dn.receiver2Name}">Receiver 2</div>
+          <div class="phone" th:text="${dn.receiver2Phone}">+966 511 111 111</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="items">
+    <table>
+      <thead>
+      <tr>
+        <th>Item #</th>
+        <th>Part Number</th>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>UOM</th>
+        <th>Condition</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="item, iter : ${dn.items}">
+        <td th:text="${iter.index + 1}">1</td>
+        <td th:text="${item.partNumber}">PN-0000</td>
+        <td th:text="${item.description}">Description</td>
+        <td th:text="${item.qty}">0</td>
+        <td th:text="${item.uom}">PCS</td>
+        <td th:text="${item.condition}">NEW</td>
+      </tr>
+      <tr th:if="${dn.items.size() < 20}" th:each="i : ${#numbers.sequence(1, 20 - dn.items.size())}">
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="watermark">Page 1</div>
+  </div>
+
+  <div class="footer">
+    <div class="totals-row">
+      <div>Total: <span th:text="${dn.totals.totalCases}">00</span> CASES</div>
+      <div>Gross weight (KG): <span th:text="${dn.totals.grossWeight}">0</span></div>
+      <div>Volume (CBM): <span th:text="${dn.totals.volume}">0</span></div>
+    </div>
+
+    <div class="delivery-info">
+      <div class="delivered-by">
+        <div class="title">Delivered by:</div>
+        <div class="line">
+          <span>Driver(s)</span>
+          <span class="dots"></span>
+          <span></span>
+        </div>
+        <div class="driver-list" th:if="${!#lists.isEmpty(options.printDrivers)}">
+          <div class="driver-line" th:each="driver : ${options.printDrivers}">
+            <span class="name" th:text="${driver.name}">Driver</span>
+            <span th:text="${driver.mobile}">+966</span>
+          </div>
+        </div>
+        <div class="driver-list" th:if="${#lists.isEmpty(options.printDrivers)}">
+          <div class="driver-line">
+            <span class="name" th:text="${dn.driverName}">Driver</span>
+            <span th:text="${dn.driverMobile}">+966</span>
+          </div>
+        </div>
+        <div class="line">
+          <span>Carrier</span>
+          <span class="dots"></span>
+          <span th:text="${dn.carrier}">Transporter company</span>
+        </div>
+        <div class="line">
+          <span>Type of Truck and Qty</span>
+          <span class="dots"></span>
+          <span th:text="${dn.vehicleType}">Dyna</span>
+        </div>
+      </div>
+
+      <div class="checked-by">
+        <div class="title">Checked by:</div>
+        <div class="checker" th:text="${dn.checkedBy}"></div>
+      </div>
+    </div>
+
+    <div class="receiver-block">
+      <div class="title">Below fields are mandatory to be filled by the Receiver.</div>
+      <div class="receiver-fields">
+        <div class="field">
+          <span>NAME</span>
+          <span class="dots"></span>
+        </div>
+        <div class="field">
+          <span>Mobile no.</span>
+          <span class="dots"></span>
+        </div>
+        <div class="field">
+          <span>SIGN</span>
+          <span class="dots"></span>
+        </div>
+        <div class="field">
+          <span>DATE</span>
+          <span class="dots"></span>
+        </div>
+        <div class="field">
+          <span>STAMP</span>
+          <span class="dots"></span>
+        </div>
+      </div>
+
+      <div class="receiver-footer">
+        <div class="signature-box">Receiver Stamp/Sign</div>
+        <div class="approver">Ahmed H. Hachicho</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

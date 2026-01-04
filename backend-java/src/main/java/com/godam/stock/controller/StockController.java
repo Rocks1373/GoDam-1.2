@@ -1,0 +1,37 @@
+package com.godam.stock.controller;
+
+import com.godam.stock.dto.StockItemDto;
+import com.godam.stock.dto.StockPickSuggestionDto;
+import com.godam.stock.service.StockService;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/stock")
+public class StockController {
+  private final StockService stockService;
+
+  public StockController(StockService stockService) {
+    this.stockService = stockService;
+  }
+
+  @GetMapping("/{warehouseNo}/{partNumber}")
+  public StockItemDto getStock(
+      @PathVariable("warehouseNo") String warehouseNo,
+      @PathVariable("partNumber") String partNumber) {
+    return stockService.getStockByPart(warehouseNo, partNumber)
+        .orElse(null);
+  }
+
+  @GetMapping("/suggest")
+  public List<StockPickSuggestionDto> suggestPick(
+      @RequestParam("warehouseNo") String warehouseNo,
+      @RequestParam("partNumber") String partNumber,
+      @RequestParam("requiredQty") int requiredQty) {
+    return stockService.suggestPick(warehouseNo, partNumber, requiredQty);
+  }
+}
