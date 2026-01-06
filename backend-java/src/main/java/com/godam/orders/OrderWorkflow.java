@@ -2,19 +2,25 @@ package com.godam.orders;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrimaryGeneratedColumn;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
+import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity(name = "order_workflows")
-@Index(name = "UX_OrderWorkflow_Outbound", columnList = "outbound_number", unique = true)
+@Entity
+@Table(
+    name = "OrderWorkflows",
+    indexes = {
+      @Index(name = "UX_OrderWorkflow_Outbound", columnList = "outbound_number", unique = true)
+    })
 public class OrderWorkflow {
-  @PrimaryGeneratedColumn(strategy = GenerationType.IDENTITY)
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @Column(name = "invoice_number")

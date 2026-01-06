@@ -8,7 +8,6 @@ import com.godam.orders.dto.OrderViewDto;
 import com.godam.orders.repository.OrderWorkflowRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +22,7 @@ public class OrdersService {
   @Transactional(readOnly = true)
   public OrderViewDto getOrder(Long orderId) {
     OrderWorkflow order = orderWorkflowRepository.findDetailedById(orderId)
-        .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found"));
 
     OrderViewDto view = new OrderViewDto();
     view.setSummary(toSummary(order));

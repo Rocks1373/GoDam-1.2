@@ -7,9 +7,8 @@ import com.godam.dn.dto.DnOptions;
 import com.godam.dn.dto.DnTotals;
 import com.godam.dn.dto.DnViewResponse;
 import com.godam.dn.repository.OrderTransportRepository;
-import com.godam.dn.repository.OrderWorkflowRepository;
-import com.godam.dn.repository.StockMovementRepository;
-import com.godam.dn.repository.StockRepository;
+import com.godam.orders.repository.OrderWorkflowRepository;
+import com.godam.movements.repository.StockMovementRepository;
 import com.godam.dn.repository.UserRepository;
 import com.godam.movements.MovementType;
 import com.godam.movements.StockMovement;
@@ -17,6 +16,7 @@ import com.godam.orders.OrderItem;
 import com.godam.orders.OrderTransport;
 import com.godam.orders.OrderWorkflow;
 import com.godam.stock.Stock;
+import com.godam.stock.repository.StockRepository;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,7 +56,7 @@ public class DnService {
   @Transactional(readOnly = true)
   public DnViewResponse getDnView(Long orderId, DnOptions options) {
     OrderWorkflow order = orderWorkflowRepository.findDetailedById(orderId)
-        .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found"));
 
     List<OrderItem> items = order.getItems();
     Map<String, Stock> stockByPart = loadStockByPart(items);
@@ -87,9 +87,9 @@ public class DnService {
   @Transactional
   public void saveDn(Long orderId, DnCreateRequest request, Long userId) {
     OrderWorkflow order = orderWorkflowRepository.findById(orderId)
-        .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found"));
 
-    OrderTransport transport = orderTransportRepository.findByOrderId(orderId).orElse(null);
+    OrderTransport transport = orderTransportRepository.findByOrder_Id(orderId).orElse(null);
     if (transport == null) {
       transport = new OrderTransport();
       transport.setOrder(order);

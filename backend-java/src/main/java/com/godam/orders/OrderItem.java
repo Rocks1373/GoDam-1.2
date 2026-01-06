@@ -4,12 +4,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrimaryGeneratedColumn;
+import jakarta.persistence.Table;
 
-@Entity(name = "order_items")
+@Entity
+@Table(name = "OrderItems")
 public class OrderItem {
-  @PrimaryGeneratedColumn(strategy = GenerationType.IDENTITY)
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @Column(name = "part_number")

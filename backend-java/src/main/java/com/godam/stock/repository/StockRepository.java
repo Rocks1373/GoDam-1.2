@@ -11,5 +11,9 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
   List<Stock> findByWarehouseNoAndPartNumberOrderByCreatedAtAsc(String warehouseNo, String partNumber);
 
+  List<Stock> findByWarehouseNoOrderByCreatedAtDesc(String warehouseNo);
+
   List<Stock> findByWarehouseNoAndPartNumberIn(String warehouseNo, Collection<String> partNumbers);
+
+  List<Stock> findByPartNumberIn(Collection<String> partNumbers);
 }

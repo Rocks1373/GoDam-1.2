@@ -39,6 +39,22 @@ public class StockService {
   }
 
   @Transactional(readOnly = true)
+  public List<StockItemDto> listStock(Optional<String> warehouseNo) {
+    List<Stock> rows;
+    if (warehouseNo.isPresent()) {
+      rows = stockRepository.findByWarehouseNoOrderByCreatedAtDesc(warehouseNo.get());
+    } else {
+      rows = stockRepository.findAll();
+    }
+    List<StockItemDto> result = new ArrayList<>();
+    for (Stock row : rows) {
+      assertNonNegative(row);
+      result.add(toDto(row));
+    }
+    return result;
+  }
+
+  @Transactional(readOnly = true)
   public Map<String, StockItemDto> getStockByParts(String warehouseNo, Set<String> partNumbers) {
     List<Stock> rows = stockRepository.findByWarehouseNoAndPartNumberIn(warehouseNo, partNumbers);
     Map<String, StockItemDto> result = new HashMap<>();
@@ -65,7 +81,8 @@ public class StockService {
       totalQty += row.getQty();
     }
     if (parkedQty > totalQty) {
-      throw new IllegalStateException("Parked qty exceeds available stock for part " + partNumber);
+      throw new com.godam.common.exception.StockValidationException(
+          "Parked qty exceeds available stock for part " + partNumber);
     }
 
     int remainingParked = parkedQty;
@@ -105,7 +122,8 @@ public class StockService {
 
   private void assertNonNegative(Stock stock) {
     if (stock.getQty() < 0) {
-      throw new IllegalStateException("Negative stock qty for part " + stock.getPartNumber());
+      throw new com.godam.common.exception.StockValidationException(
+          "Negative stock qty for part " + stock.getPartNumber());
     }
   }
 

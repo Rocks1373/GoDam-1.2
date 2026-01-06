@@ -4,6 +4,7 @@ import com.godam.stock.dto.StockItemDto;
 import com.godam.stock.dto.StockPickSuggestionDto;
 import com.godam.stock.service.StockService;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,12 @@ public class StockController {
 
   public StockController(StockService stockService) {
     this.stockService = stockService;
+  }
+
+  @GetMapping
+  public List<StockItemDto> listStock(
+      @RequestParam(value = "warehouseNo", required = false) Optional<String> warehouseNo) {
+    return stockService.listStock(warehouseNo);
   }
 
   @GetMapping("/{warehouseNo}/{partNumber}")

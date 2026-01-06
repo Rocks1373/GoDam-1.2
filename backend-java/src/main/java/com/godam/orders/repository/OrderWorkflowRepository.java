@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrderWorkflowRepository extends JpaRepository<OrderWorkflow, Long> {
-  @EntityGraph(attributePaths = {"items"})
+  @EntityGraph(attributePaths = {"items", "transport"})
   Optional<OrderWorkflow> findDetailedById(Long id);
 
   @EntityGraph(attributePaths = {"items"})
@@ -15,4 +15,6 @@ public interface OrderWorkflowRepository extends JpaRepository<OrderWorkflow, Lo
 
   @EntityGraph(attributePaths = {"items"})
   List<OrderWorkflow> findByDnCreated(boolean dnCreated);
+
+  Optional<OrderWorkflow> findByOutboundNumber(String outboundNumber);
 }

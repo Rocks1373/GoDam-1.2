@@ -5,12 +5,15 @@ import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.PrimaryGeneratedColumn;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.Instant;
 
-@Entity(name = "stock_movements")
+@Entity
+@Table(name = "StockMovements")
 public class StockMovement {
-  @PrimaryGeneratedColumn(strategy = GenerationType.IDENTITY)
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @Convert(converter = MovementTypeConverter.class)

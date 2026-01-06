@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoDam DN Studio</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand">
+          <img src="logo.png" alt="GoDam" class="brand-logo" />
+          <div>
+            <div class="brand-title">GoDam DN Studio</div>
+            <div class="brand-subtitle">A4-ready delivery note composer</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btn-preview">Print Preview</button>
+          <button class="btn" id="btn-print">Print</button>
+          <button class="btn" id="btn-pdf">Download PDF</button>
+          <button class="btn primary" id="btn-send">Send to Client</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel form-panel">
+          <h2>Delivery Note Entry</h2>
+          <p class="hint">Fill the left panel; the A4 preview updates live.</p>
+
+          <div class="form-grid">
+            <div class="fieldset">
+              <h3>Warehouse Details</h3>
+              <label>Warehouse Name
+                <input type="text" id="warehouseName" value="GoDam Central" />
+              </label>
+              <label>From Location
+                <input type="text" id="fromLocation" value="Riyadh" />
+              </label>
+              <label>Warehouse Address
+                <textarea id="warehouseAddress">King Fahd Road, Industrial Zone</textarea>
+              </label>
+            </div>
+
+            <div class="fieldset">
+              <h3>Customer Details</h3>
+              <label>Customer Name
+                <input type="text" id="customerName" value="Huawei Partner" />
+              </label>
+              <label>Customer PO
+                <input type="text" id="customerPo" value="PO-77801" />
+              </label>
+              <label>Customer Address
+                <textarea id="customerAddress">King Saud Street, Jeddah</textarea>
+              </label>
+            </div>
+
+            <div class="fieldset">
+              <h3>Sales Details</h3>
+              <label>Salesman
+                <input type="text" id="salesman" value="Ahmed Noor" />
+              </label>
+              <label>Project
+                <input type="text" id="project" value="Metro Expansion" />
+              </label>
+              <label>Payment Terms
+                <input type="text" id="payment" value="Net 30" />
+              </label>
+            </div>
+
+            <div class="fieldset">
+              <h3>Transport Details</h3>
+              <label>Transporter
+                <input type="text" id="transporter" value="Al Riyadh Transport" />
+              </label>
+              <label>Vehicle Type
+                <input type="text" id="vehicleType" value="Trailer" />
+              </label>
+              <label>Driver(s)
+                <textarea id="drivers">Mohammed Ali - 0551234567
+Saeed Karim - 0559876543</textarea>
+              </label>
+            </div>
+
+            <div class="fieldset">
+              <h3>DN Details</h3>
+              <label>DN Number
+                <input type="text" id="dnNumber" value="" placeholder="Optional" />
+              </label>
+              <label>Outbound Number
+                <input type="text" id="outboundNumber" value="OB-2026-145" />
+              </label>
+              <label>Invoice Number
+                <input type="text" id="invoiceNumber" value="INV-2026-778" />
+              </label>
+              <label>GAPP PO
+                <input type="text" id="gappPo" value="GAPP-551" />
+              </label>
+            </div>
+          </div>
+
+          <div class="fieldset">
+            <div class="fieldset-header">
+              <h3>Item Summary</h3>
+              <button class="btn ghost" id="addRow">+ Add Item</button>
+            </div>
+            <table class="entry-table" id="entryTable">
+              <thead>
+                <tr>
+                  <th>Part No</th>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>UOM</th>
+                  <th>Condition</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input value="PN-1001" /></td>
+                  <td><input value="Cable assembly kit" /></td>
+                  <td><input value="12" /></td>
+                  <td><input value="EA" /></td>
+                  <td><input value="NEW" /></td>
+                  <td><button class="btn tiny danger">Remove</button></td>
+                </tr>
+                <tr>
+                  <td><input value="PN-2044" /></td>
+                  <td><input value="Industrial sensor" /></td>
+                  <td><input value="5" /></td>
+                  <td><input value="PCS" /></td>
+                  <td><input value="NEW" /></td>
+                  <td><button class="btn tiny danger">Remove</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="preview-header">
+            <div>
+              <h2>A4 Print Preview</h2>
+              <div class="hint">Live preview · ready for print</div>
+            </div>
+            <div class="toggle-row">
+              <label><input type="checkbox" id="showQr" checked /> Show QR</label>
+              <label><input type="checkbox" id="showSales" checked /> Show Salesman</label>
+              <label><input type="checkbox" id="showProject" checked /> Show Project</label>
+              <label><input type="checkbox" id="showPayment" checked /> Show Payment</label>
+            </div>
+          </div>
+
+          <div class="a4-wrapper">
+            <article class="a4" id="printArea">
+              <div class="a4-header">
+                <div class="company-block">
+                  <img src="logo.png" alt="GoDam" />
+                  <div>
+                    <div class="company-name">GoDam Logistics</div>
+                    <div class="company-meta">www.gapp.sa · Riyadh</div>
+                    <div class="company-meta" id="warehouseAddressPreview">King Fahd Road, Industrial Zone</div>
+                  </div>
+                </div>
+                <div class="dn-info">
+                  <div class="dn-title">Delivery Note</div>
+                  <div class="dn-meta">
+                    <div><span>DN No</span><strong id="dnNumberPreview">—</strong></div>
+                    <div><span>Date</span><strong id="dnDate">2026-01-05</strong></div>
+                    <div><span>Outbound</span><strong id="outboundPreview">OB-2026-145</strong></div>
+                    <div><span>Invoice</span><strong id="invoicePreview">INV-2026-778</strong></div>
+                    <div><span>GAPP PO</span><strong id="gappPreview">GAPP-551</strong></div>
+                    <div><span>Customer PO</span><strong id="customerPoPreview">PO-77801</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="a4-grid">
+                <div>
+                  <div class="section-title">From</div>
+                  <div class="section-text" id="fromLocationPreview">Riyadh</div>
+                  <div class="section-text" id="warehouseNamePreview">GoDam Central</div>
+                </div>
+                <div>
+                  <div class="section-title">To</div>
+                  <div class="section-text" id="customerNamePreview">Huawei Partner</div>
+                  <div class="section-text" id="customerAddressPreview">King Saud Street, Jeddah</div>
+                </div>
+                <div>
+                  <div class="section-title">Transport</div>
+                  <div class="section-text" id="transporterPreview">Al Riyadh Transport</div>
+                  <div class="section-text" id="vehicleTypePreview">Trailer</div>
+                </div>
+                <div>
+                  <div class="section-title">Driver(s)</div>
+                  <div class="section-text" id="driversPreview"></div>
+                </div>
+              </div>
+
+              <table class="a4-table" id="previewTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Part No</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>UOM</th>
+                    <th>Condition</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+
+              <div class="a4-footer">
+                <div class="summary-block">
+                  <div><span>Total Parts</span><strong id="totalParts">0</strong></div>
+                  <div><span>Total Qty</span><strong id="totalQty">0</strong></div>
+                  <div><span>Total Cases</span><strong id="totalCases">0</strong></div>
+                  <div><span>Gross Weight</span><strong id="grossWeight">0</strong></div>
+                  <div><span>Volume</span><strong id="volume">0</strong></div>
+                </div>
+                <div class="signature-block">
+                  <div>
+                    <div class="section-title">Checked By</div>
+                    <div class="signature-line">&nbsp;</div>
+                  </div>
+                  <div>
+                    <div class="section-title">Received By</div>
+                    <div class="signature-line">&nbsp;</div>
+                  </div>
+                  <div>
+                    <div class="section-title">Authorized By</div>
+                    <div class="signature-line">&nbsp;</div>
+                  </div>
+                </div>
+                <div class="footer-meta">
+                  <div id="salesmanPreview">Salesman: Ahmed Noor</div>
+                  <div id="projectPreview">Project: Metro Expansion</div>
+                  <div id="paymentPreview">Payment: Net 30</div>
+                </div>
+              </div>
+
+              <div class="qr-block" id="qrBlock">
+                <div class="qr-placeholder">QR</div>
+                <div class="qr-text" id="qrText">OB-2026-145</div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const inputs = [
+        "warehouseName",
+        "fromLocation",
+        "warehouseAddress",
+        "customerName",
+        "customerPo",
+        "customerAddress",
+        "salesman",
+        "project",
+        "payment",
+        "transporter",
+        "vehicleType",
+        "drivers",
+        "dnNumber",
+        "outboundNumber",
+        "invoiceNumber",
+        "gappPo",
+      ];
+
+      const map = {
+        warehouseName: "warehouseNamePreview",
+        fromLocation: "fromLocationPreview",
+        warehouseAddress: "warehouseAddressPreview",
+        customerName: "customerNamePreview",
+        customerPo: "customerPoPreview",
+        customerAddress: "customerAddressPreview",
+        salesman: "salesmanPreview",
+        project: "projectPreview",
+        payment: "paymentPreview",
+        transporter: "transporterPreview",
+        vehicleType: "vehicleTypePreview",
+        drivers: "driversPreview",
+        dnNumber: "dnNumberPreview",
+        outboundNumber: "outboundPreview",
+        invoiceNumber: "invoicePreview",
+        gappPo: "gappPreview",
+      };
+
+      const updatePreview = () => {
+        inputs.forEach((id) => {
+          const input = document.getElementById(id);
+          const target = document.getElementById(map[id]);
+          if (!input || !target) return;
+          const value = input.value.trim();
+          if (id === "drivers") {
+            target.innerHTML = value
+              .split("\n")
+              .filter(Boolean)
+              .map((row) => `<div>${row}</div>`)
+              .join("");
+          } else if (id === "salesman") {
+            target.textContent = value ? `Salesman: ${value}` : "Salesman:";
+          } else if (id === "project") {
+            target.textContent = value ? `Project: ${value}` : "Project:";
+          } else if (id === "payment") {
+            target.textContent = value ? `Payment: ${value}` : "Payment:";
+          } else if (id === "dnNumber") {
+            target.textContent = value || "—";
+            document.getElementById("qrText").textContent = value || document.getElementById("outboundNumber").value;
+          } else {
+            target.textContent = value || "—";
+          }
+        });
+        updateTable();
+      };
+
+      const updateTable = () => {
+        const body = document.querySelector("#previewTable tbody");
+        const rows = document.querySelectorAll("#entryTable tbody tr");
+        body.innerHTML = "";
+        let totalQty = 0;
+        rows.forEach((row, index) => {
+          const cells = row.querySelectorAll("input");
+          const qty = parseFloat(cells[2].value || "0");
+          totalQty += qty;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${cells[0].value}</td>
+            <td>${cells[1].value}</td>
+            <td>${cells[2].value}</td>
+            <td>${cells[3].value}</td>
+            <td>${cells[4].value}</td>
+          `;
+          body.appendChild(tr);
+        });
+        document.getElementById("totalParts").textContent = rows.length.toString();
+        document.getElementById("totalQty").textContent = totalQty.toString();
+        document.getElementById("totalCases").textContent = Math.ceil(totalQty / 10).toString();
+        document.getElementById("grossWeight").textContent = (totalQty * 1.2).toFixed(2);
+        document.getElementById("volume").textContent = (totalQty * 0.02).toFixed(2);
+      };
+
+      document.querySelectorAll("input, textarea").forEach((el) => {
+        el.addEventListener("input", updatePreview);
+      });
+
+      document.getElementById("addRow").addEventListener("click", () => {
+        const tbody = document.querySelector("#entryTable tbody");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input value="" /></td>
+          <td><input value="" /></td>
+          <td><input value="" /></td>
+          <td><input value="EA" /></td>
+          <td><input value="NEW" /></td>
+          <td><button class="btn tiny danger">Remove</button></td>
+        `;
+        tbody.appendChild(tr);
+        updatePreview();
+      });
+
+      document.getElementById("entryTable").addEventListener("click", (event) => {
+        const target = event.target;
+        if (target.classList.contains("danger")) {
+          target.closest("tr").remove();
+          updatePreview();
+        }
+      });
+
+      document.getElementById("showQr").addEventListener("change", (event) => {
+        document.getElementById("qrBlock").style.display = event.target.checked ? "flex" : "none";
+      });
+      document.getElementById("showSales").addEventListener("change", (event) => {
+        document.getElementById("salesmanPreview").style.display = event.target.checked ? "block" : "none";
+      });
+      document.getElementById("showProject").addEventListener("change", (event) => {
+        document.getElementById("projectPreview").style.display = event.target.checked ? "block" : "none";
+      });
+      document.getElementById("showPayment").addEventListener("change", (event) => {
+        document.getElementById("paymentPreview").style.display = event.target.checked ? "block" : "none";
+      });
+
+      document.getElementById("btn-print").addEventListener("click", () => window.print());
+      document.getElementById("btn-pdf").addEventListener("click", () => window.print());
+      document.getElementById("btn-preview").addEventListener("click", () => {
+        document.getElementById("printArea").scrollIntoView({ behavior: "smooth" });
+      });
+      document.getElementById("btn-send").addEventListener("click", () => {
+        const subject = encodeURIComponent("Delivery Note");
+        const body = encodeURIComponent("Please find the delivery note attached. Use Print > Save as PDF.");
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      });
+
+      updatePreview();
+    </script>
+  </body>
+</html>
