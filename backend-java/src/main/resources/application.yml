@@ -1,17 +1,24 @@
 spring:
   datasource:
-    url: ${GODAM_DB_URL:jdbc:sqlserver://localhost:1433;databaseName=godam}
-    username: ${GODAM_DB_USER:sa}
-    password: ${GODAM_DB_PASSWORD:password}
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: ${GODAM_DB_URL:jdbc:sqlite:${GODAM_DB_PATH:./data/godam.db}}
+    driver-class-name: org.sqlite.JDBC
   jpa:
     hibernate:
       ddl-auto: none
     properties:
       hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect
         format_sql: true
     open-in-view: false
   thymeleaf:
     cache: false
 server:
   port: ${PORT:8080}
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.godam: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
