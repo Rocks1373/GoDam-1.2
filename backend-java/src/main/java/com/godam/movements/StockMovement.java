@@ -44,6 +44,27 @@ public class StockMovement {
   @Column(name = "rack")
   private String rack;
 
+  @Column(name = "bin")
+  private String bin;
+
+  @Column(name = "suggested_rack")
+  private String suggestedRack;
+
+  @Column(name = "actual_rack")
+  private String actualRack;
+
+  @Column(name = "picked_qty")
+  private Integer pickedQty;
+
+  @Column(name = "requested_qty")
+  private Integer requestedQty;
+
+  @Column(name = "reference")
+  private String reference;
+
+  @Column(name = "remark")
+  private String remark;
+
   @Column(name = "created_by")
   private Long createdBy;
 
@@ -128,6 +149,62 @@ public class StockMovement {
 
   public void setRack(String rack) {
     this.rack = rack;
+  }
+
+  public String getBin() {
+    return bin;
+  }
+
+  public void setBin(String bin) {
+    this.bin = bin;
+  }
+
+  public String getSuggestedRack() {
+    return suggestedRack;
+  }
+
+  public void setSuggestedRack(String suggestedRack) {
+    this.suggestedRack = suggestedRack;
+  }
+
+  public String getActualRack() {
+    return actualRack;
+  }
+
+  public void setActualRack(String actualRack) {
+    this.actualRack = actualRack;
+  }
+
+  public Integer getPickedQty() {
+    return pickedQty;
+  }
+
+  public void setPickedQty(Integer pickedQty) {
+    this.pickedQty = pickedQty;
+  }
+
+  public Integer getRequestedQty() {
+    return requestedQty;
+  }
+
+  public void setRequestedQty(Integer requestedQty) {
+    this.requestedQty = requestedQty;
+  }
+
+  public String getReference() {
+    return reference;
+  }
+
+  public void setReference(String reference) {
+    this.reference = reference;
+  }
+
+  public String getRemark() {
+    return remark;
+  }
+
+  public void setRemark(String remark) {
+    this.remark = remark;
   }
 
   public Long getCreatedBy() {

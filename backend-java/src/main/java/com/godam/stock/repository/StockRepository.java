@@ -13,7 +13,22 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
   List<Stock> findByWarehouseNoOrderByCreatedAtDesc(String warehouseNo);
 
+  Optional<Stock> findFirstByWarehouseNoAndStorageLocationAndPartNumberAndRackAndDrumNo(
+      String warehouseNo,
+      String storageLocation,
+      String partNumber,
+      String rack,
+      Integer drumNo);
+
   List<Stock> findByWarehouseNoAndPartNumberIn(String warehouseNo, Collection<String> partNumbers);
 
   List<Stock> findByPartNumberIn(Collection<String> partNumbers);
+
+  List<Stock> findByPartNumberOrderByCreatedAtAsc(String partNumber);
+
+  List<Stock> findByParentPnOrderByCreatedAtAsc(String parentPn);
+
+  List<Stock> findByPartNumberAndPnIndicatorOrderByCreatedAtAsc(String partNumber, String pnIndicator);
+
+  Optional<Stock> findFirstByPartNumberAndRackOrderByCreatedAtAsc(String partNumber, String rack);
 }

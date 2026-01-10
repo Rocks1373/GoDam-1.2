@@ -9,7 +9,7 @@ import com.godam.dn.dto.DnViewResponse;
 import com.godam.dn.repository.OrderTransportRepository;
 import com.godam.orders.repository.OrderWorkflowRepository;
 import com.godam.movements.repository.StockMovementRepository;
-import com.godam.dn.repository.UserRepository;
+import com.godam.common.UserRepository;
 import com.godam.movements.MovementType;
 import com.godam.movements.StockMovement;
 import com.godam.orders.OrderItem;
@@ -53,7 +53,7 @@ public class DnService {
     this.userRepository = userRepository;
   }
 
-  @Transactional(readOnly = true)
+@Transactional(readOnly = true)
   public DnViewResponse getDnView(Long orderId, DnOptions options) {
     OrderWorkflow order = orderWorkflowRepository.findDetailedById(orderId)
         .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found"));
@@ -67,7 +67,12 @@ public class DnService {
     response.setGappPo(order.getGappPo());
     response.setCustomerPo(order.getCustomerPo());
     response.setCustomerName(order.getCustomerName());
+    response.setDate(getCurrentDate());
+    response.setTime(getCurrentTime());
     response.setOptions(options == null ? new DnOptions() : options);
+
+    // Set company info
+    setCompanyInfo(response);
 
     OrderTransport transport = order.getTransport();
     if (transport != null) {
@@ -75,6 +80,7 @@ public class DnService {
       response.setDriverName(transport.getDriverName());
       response.setDriverMobile(transport.getDriverNumber());
       response.setVehicleType(transport.getVehicleType());
+      response.setVehicleNumber(transport.getVehicleNumber());
     }
 
     response.setItems(buildItemViews(items, stockByPart));
@@ -82,6 +88,31 @@ public class DnService {
     response.setCheckedBy(resolveCheckedBy(order.getOutboundNumber()));
 
     return response;
+  }
+
+  private void setCompanyInfo(DnViewResponse response) {
+    // Company information - can be loaded from configuration or database
+    response.setCompanyName("Gulf Applications");
+    response.setCompanyNameArabic("تطبيقات الخليج");
+    response.setCompanyAddress("Apartment 5001, 50th Floor, Kingdom Tower, P.O Box 89098, Riyadh, Saudi Arabia");
+    response.setCompanyPhone("+966 1147 28 256");
+    response.setCompanyFax("+966 1147 81503");
+    response.setCompanyWebsite("http://www.gapp.sa");
+    response.setCompanyEmail("info@gapp.sa");
+    // Optional fields - enable via DnOptions
+    response.setCrNumber(null);
+    response.setVatNumber(null);
+    response.setLogoUrl(null);
+  }
+
+  private String getCurrentDate() {
+    java.time.LocalDate today = java.time.LocalDate.now();
+    return String.format("%02d/%02d/%d", today.getDayOfMonth(), today.getMonthValue(), today.getYear());
+  }
+
+  private String getCurrentTime() {
+    java.time.LocalTime now = java.time.LocalTime.now();
+    return String.format("%02d:%02d", now.getHour(), now.getMinute());
   }
 
   @Transactional

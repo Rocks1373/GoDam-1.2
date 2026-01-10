@@ -21,4 +21,10 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
   List<StockMovement> findBySalesOrder(String salesOrder);
 
   List<StockMovement> findBySalesOrderOrderByCreatedAtAsc(String salesOrder);
+
+  @Query("select coalesce(sum(m.qtyChange), 0) from StockMovement m where m.salesOrder = :salesOrder and m.partNumber = :partNumber and m.movementType = :type")
+  int sumQtyBySalesOrderAndPartNumberAndType(
+      @Param("salesOrder") String salesOrder,
+      @Param("partNumber") String partNumber,
+      @Param("type") MovementType type);
 }

@@ -1,0 +1,35 @@
+services:
+  godam-backend:
+    build:
+      context: ./backend-java
+    container_name: godam-backend
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./backend-java/data:/data:rw
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/data/godam.db
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  godam-web:
+    build:
+      context: ./web-admin
+      dockerfile: Dockerfile
+    container_name: godam-web
+    ports:
+      - "8091:80"
+    depends_on:
+      - godam-backend
+    restart: unless-stopped
+
+networks:
+  default:
+    name: godam-network
+</parameter>
+<parameter name="path">/Users/deepaksharma/Desktop/DeepakInventory/GoDam_1.2/docker-compose.yaml</parameter>

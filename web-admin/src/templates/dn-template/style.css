@@ -1,0 +1,313 @@
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f4f6fb;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: #0f172a;
+}
+
+.dn-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0 12px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #1c3d5a;
+}
+
+.dn-branding {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.dn-logo {
+  width: 150px;
+  height: 150px;
+  border: 2px solid #1c3d5a;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dn-logo img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.dn-brand-details {
+  font-size: 12px;
+  line-height: 1.12;
+  letter-spacing: 0.3px;
+  margin-left: 6px;
+  margin-top: 1px;
+}
+
+.dn-brand-name {
+  font-size: 22px;
+  font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #1c3d5a;
+}
+
+.dn-title-block {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.dn-document-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #1c3d5a;
+}
+
+.dn-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dn-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 10px 11px 18px;
+  background: #ffffff;
+  font-size: 11px;
+}
+
+.dn-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.dn-card {
+  border: 1px solid #1c3d5a;
+  border-radius: 10px;
+  padding: 14px;
+  background: #ffffff;
+  min-height: 150px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.dn-card-title {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  color: #1c3d5a;
+}
+
+.dn-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.dn-line {
+  display: block;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.dn-link {
+  color: #1c3d5a;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.dn-receiver-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.items-section {
+  margin-top: 24px;
+}
+
+.dn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.dn-table th,
+.dn-table td {
+  border: 1px solid #0f172a;
+  padding: 6px;
+}
+
+.dn-table th {
+  background: #1c3d5a;
+  color: white;
+  font-size: 10px;
+}
+
+.part-col {
+  width: 16%;
+}
+
+.desc-col {
+  width: 42%;
+  text-align: left;
+}
+
+.qty-col {
+  width: 10%;
+  text-align: center;
+}
+
+.condition-col {
+  width: 11%;
+}
+
+.total-row td {
+  font-weight: 700;
+  background: #f0f4ff;
+}
+
+.dn-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.dn-summary-card {
+  border: 1px solid #1c3d5a;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.summary-label {
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.summary-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.dn-footer {
+  margin-top: 32px;
+  position: relative;
+}
+
+.dn-footer-top {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.dn-dot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.dn-dot .dots {
+  height: 1px;
+  width: 100%;
+  border-bottom: 1px dotted #0f172a;
+  margin-left: 8px;
+}
+
+.dn-transporter {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.dn-drivers {
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.dn-driver-head,
+.dn-driver-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 60px;
+  gap: 6px;
+}
+
+.dn-driver-head {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.dn-declaration {
+  font-size: 10px;
+  margin-top: 14px;
+  color: #1f2933;
+}
+
+.dn-final {
+  margin-top: 8px;
+  font-size: 10px;
+  text-align: right;
+  letter-spacing: 1px;
+}
+
+.prepared-name {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.dn-date {
+  font-size: 11px;
+  color: #4a5568;
+}
+
+.dn-final-label {
+  font-weight: 600;
+  margin-right: 4px;
+  display: inline-block;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .dn-page {
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+  }
+  .dn-header,
+  .dn-footer-top,
+  .dn-summary {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}

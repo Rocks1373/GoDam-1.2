@@ -1,0 +1,134 @@
+GoDam 1.2 - Backend Stock Logic Updates
+
+Purpose
+- Document the special stock logic implementation (parent/child, drums, rolls) and movement logging for pick/confirm.
+- Provide a simple explanation of how the process works and where to extend it in future.
+
+UI (Mobile Picker) Update - 2026-01-05
+- Confirm button in Picker View is now visually highlighted (green).
+- Picked items lock the rack input (cannot edit after pick).
+- "Confirm picked" button glows when enabled, dims when disabled.
+
+Web Admin Theme Update - 2026-01-05
+- Added theme selector in topbar (Night, Dusk, Day).
+- Theme choice stored in localStorage (godam-theme).
+- CSS variables now drive all colors for easy future theming.
+
+Web Admin Stock by Rack Panel - 2026-01-05
+- Added "Stock by Rack" panel to filter stock rows by rack number.
+- Supports rack edit and delete (delete sets qty to 0 using /stock/bulk).
+- Rack edit creates a new rack row and zeros the old rack qty when rack changes.
+
+Mobile Picker Flow Update - 2026-01-05
+- Removed per-item confirm button; each item now uses a Pick dialog.
+- Pick dialog shows rack list and only enables the FIFO rack line.
+- Partial picks are supported; remaining qty is calculated from movements (O103).
+- Auto-refresh removed; data refresh happens only after Pick or Confirm.
+
+What Was Added/Changed
+1) Stock entity mapping
+   - Added mapping for existing DB columns:
+     - base_qty (baseQty)
+     - pn_indicator (pnIndicator)
+
+2) Stock DTOs
+   - StockItemDto now includes:
+     - baseQty
+     - pnIndicator
+   - StockUploadItemDto now includes:
+     - baseQty
+     - pnIndicator
+   - New DTOs:
+     - StockExpandedDto (parent + child list)
+     - StockPickContext (resolved pick context for movement logging)
+     - StockSplitRequestDto (drum split helper)
+
+3) Stock repository helpers
+   - Added queries:
+     - findByParentPnOrderByCreatedAtAsc
+     - findByPartNumberAndPnIndicatorOrderByCreatedAtAsc
+     - findFirstByPartNumberAndRackOrderByCreatedAtAsc
+
+4) StockMovement entity
+   - Mapped existing DB columns:
+     - reference
+     - remark
+
+5) Stock movement logging
+   - logMovement now supports reference + remark (pn_indicator audit)
+   - Pick action logs O103 with positive qty_change (parked qty)
+   - Confirm action logs O105 with negative qty_change (deduction)
+
+6) OrdersService integration (service layer only)
+   - pickItem:
+     - validates stock availability + FIFO
+     - logs O103 PICKED movement
+   - updateStatus:
+     - when checkingStatus == CONFIRMED:
+       - deducts stock
+       - logs O105 CONFIRMED movement
+
+Core Logic (Plain Explanation)
+Parent/Child
+- Child rows are rack-level visibility only.
+- Parent qty is the only real stock total.
+- Parent qty must always equal SUM(child.qty * child.base_qty).
+- Picks and deductions always happen on the parent.
+
+Drum / Cable
+- Main drum (indicator D) holds total length.
+- Split rows (indicator DQ) are for tracking rack allocation.
+- Cut rows (indicator DQC) are for further splits.
+- Main drum qty remains the source of truth.
+- Sum of DQ + DQC must equal main qty.
+
+Rolls
+- Roll indicator (R) stores total length in Stock.qty.
+- base_qty defines conversion: rolls = total / base_qty
+- Conversion must be exact, or it throws StockValidationException.
+
+FIFO
+- FIFO is enforced using created_at.
+- If a picked rack is not the FIFO rack, the pick is blocked.
+
+Movement Logging (Mandatory)
+- O103 (PICKED):
+  - qty_change = positive picked qty
+  - part_number = resolved main part number
+  - reference = child PN or drum row (if applicable)
+  - remark = pn_indicator value (for audit)
+
+- O105 (CONFIRMED):
+  - qty_change = negative picked qty
+  - part_number = resolved main part number
+  - reference + remark same as above
+
+Where the Logic Lives
+- StockService:
+  - calculateParentQty
+  - expandParentStock
+  - splitDrum
+  - cutDrum
+  - calculateRollQty
+  - preparePickContext
+  - applyConfirmedDeduction
+  - splitCableQtyAcrossDrums
+
+- StockMovementService:
+  - logMovement (now includes reference + remark)
+
+- OrdersService:
+  - pickItem (logs O103)
+  - updateStatus (logs O105 on CONFIRMED)
+
+How to Extend in Future
+- Add UI wiring to call:
+  - StockService.expandParentStock
+  - StockService.splitDrum / cutDrum
+  - StockService.calculateRollQty
+- Add proper userId to movement logs.
+- Add explicit confirm endpoint that triggers O105 instead of status string checks.
+
+Important Note (No Schema Changes)
+- All changes map to existing DB columns only.
+- No tables were added or altered.

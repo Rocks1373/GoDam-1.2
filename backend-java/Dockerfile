@@ -1,16 +1,12 @@
-FROM maven:3.9.2-eclipse-temurin-17-alpine AS builder
-WORKDIR /workspace
-
+FROM maven:3.8.5-openjdk-17 AS build
+WORKDIR /app
 COPY pom.xml .
 COPY src ./src
+RUN mvn clean package -DskipTests
 
-RUN mvn -B clean package -DskipTests
-
-FROM eclipse-temurin:17-alpine
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-
-COPY --from=builder /workspace/target/godam-backend-0.0.1-SNAPSHOT.jar app.jar
-
-EXPOSE 8080
-
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

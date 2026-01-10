@@ -12,6 +12,8 @@ type OrderSummary = {
   dnCreated: boolean;
   itemCount: number;
   totalQty: number;
+  pickingStatus?: string | null;
+  checkingStatus?: string | null;
 };
 
 type DashboardState = {
@@ -52,7 +54,7 @@ const Dashboard = () => {
             error: null,
           });
         }
-      } catch (error) {
+      } catch {
         if (active) {
           setState({ ...initialState, error: "Dashboard data unavailable." });
         }
@@ -65,6 +67,20 @@ const Dashboard = () => {
       active = false;
     };
   }, []);
+
+  const statusLabel = (order: OrderSummary) => {
+    const picking = (order.pickingStatus ?? "").toUpperCase();
+    const checking = (order.checkingStatus ?? "").toUpperCase();
+    if (checking === "COMPLETED") return "CHECKED";
+    if (picking === "COMPLETED") return "PICKED";
+    return "PROCESSING";
+  };
+
+  const statusClass = (label: string) => {
+    if (label === "CHECKED") return "pill pill-ok";
+    if (label === "PICKED") return "pill pill-warn";
+    return "pill pill-neutral";
+  };
 
   return (
     <div className="dashboard">
@@ -154,12 +170,8 @@ const Dashboard = () => {
                 </div>
                 <div className="recent-right">
                   <div className="recent-qty">{order.itemCount} items</div>
-                  <div
-                    className={
-                      order.dnCreated ? "pill pill-ok" : "pill pill-warn"
-                    }
-                  >
-                    {order.dnCreated ? "DN Created" : "DN Pending"}
+                  <div className={statusClass(statusLabel(order))}>
+                    {statusLabel(order)}
                   </div>
                 </div>
               </div>

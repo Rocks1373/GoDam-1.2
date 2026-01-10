@@ -1,17 +1,30 @@
 spring:
   datasource:
-    url: ${GODAM_DB_URL:jdbc:sqlite:${GODAM_DB_PATH:./data/godam.db}}
-    driver-class-name: org.sqlite.JDBC
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/godam}
+    username: ${SPRING_DATASOURCE_USERNAME:godam}
+    password: ${SPRING_DATASOURCE_PASSWORD:godampass}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.community.dialect.SQLiteDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     open-in-view: false
   thymeleaf:
     cache: false
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:25}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS:true}
 server:
   port: ${PORT:8080}
 

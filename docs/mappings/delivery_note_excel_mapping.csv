@@ -1,0 +1,73 @@
+Table,Column,Description
+delivery_note,id,PK for delivery note document
+"delivery_note",dn_number,Delivery note identifier (DN2026... to print/scan)
+delivery_note,outbound_number,Order outbound reference used to generate the DN
+delivery_note,customer_id,FK to Customers table (use SAP customer ID mapping)
+delivery_note,address,Delivery address text shown on DN
+delivery_note,google_map_link,Link stored with order for location
+"delivery_note",requirements,Special delivery requirements or notes
+delivery_note,transporter_id,FK to Transporters table
+delivery_note,driver_id,FK to Drivers table
+delivery_note,status,Delivery note workflow status (draft/in-progress/etc.)
+delivery_note,created_at,Timestamp when DN record created
+delivery_note,updated_at,Last modified timestamp
+
+delivery_note_qty,id,PK for item row
+"delivery_note_qty",dn_id,FK back to delivery_note.id
+"delivery_note_qty",description,Line description/item name shown in DN
+delivery_note_qty,quantity,Quantity sent per line
+delivery_note_qty,created_at,Timestamp for line creation
+
+OrderWorkflows,id,Primary order reference used by DN
+OrderWorkflows,outbound_number,Outbound reference (matches DN field)
+OrderWorkflows,gapp_po,GAPP PO number (printed on DN)
+OrderWorkflows,customer_po,Customer PO number
+OrderWorkflows,customer_name,Bill-to / recipient company name
+OrderWorkflows,invoice_number,Sales invoice triggered after confirmation
+OrderWorkflows,dn_created,Flag if DN has been generated
+OrderWorkflows,delivery_status,Current delivery status string
+OrderWorkflows,delivered_at,Timestamp when delivery completed
+OrderWorkflows,created_at,Order creation time
+OrderWorkflows,updated_at,Last order update timestamp
+
+OrderTransport,id,Transport/location record PK
+OrderTransport,transporter_name,Carrier/transport company name to show on DN
+OrderTransport,driver_name,Driver name (maps to Delivery By table)
+OrderTransport,driver_number,Driver mobile/phone number
+OrderTransport,outbound_number,Outbound number to join back to OrderWorkflows
+OrderTransport,vehicle_type,Vehicle description (e.g., Dyna 12T)
+OrderTransport,quantity,Case count per vehicle row
+OrderTransport,remarks,Free-form transport instructions
+OrderTransport,order_id,FK back to OrderWorkflows.id
+OrderTransport,transporter_id,FK to Transporters
+OrderTransport,driver_id,FK to Drivers
+OrderTransport,created_at,Timestamp of record creation
+
+OrderItems,id,PK for each part/item
+OrderItems,order_id,FK to OrderWorkflows
+OrderItems,part_number,Part number value printed under Part Number
+description (OrderItems,description) as Description on DN
+OrderItems,qty,Quantity column on DN
+description (picked_by) - optional status field for picking user
+OrderItems,picked_at,Timestamp when picked
+OrderItems,is_picked,Boolean indicator (0/1)
+OrderItems,created_at,Timestamp when line was created
+
+Customers,id,Primary key to join customer details
+Customers,name,Customer company name
+Customers,location_text,Delivery location text shown on DN
+Customers,google_location,Google Maps link
+Customers,sap_customer_id,SAP ID (required for upload)
+Customers,receiver1_name,Receiver 1 contact name
+Customers,receiver1_contact,Receiver 1 phone
+Customers,receiver2_name,Receiver 2 contact name
+Customers,receiver2_contact,Receiver 2 phone
+
+Drivers,id,Primary key for driver info
+Drivers,driver_name,Driver full name
+driver_number,Driver contact/mob
+vehicle_type,Driver vehicle/truck description
+
+Transporters,id,PK for transporter/master
+Transporters,company_name,Company; printed as carrier value
+Transporters,email,Optional contact info

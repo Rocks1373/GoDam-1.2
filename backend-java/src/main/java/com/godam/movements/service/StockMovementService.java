@@ -26,7 +26,14 @@ public class StockMovementService {
       String outboundNumber,
       String invoiceNumber,
       Long userId,
-      String rack) {
+      String rack,
+      String bin,
+      String suggestedRack,
+      String actualRack,
+      Integer pickedQty,
+      Integer requestedQty,
+      String reference,
+      String remark) {
     StockMovement movement = new StockMovement();
     movement.setMovementType(type);
     movement.setWarehouseNo(warehouseNo);
@@ -37,6 +44,13 @@ public class StockMovementService {
     movement.setInvoiceNumber(invoiceNumber);
     movement.setCreatedBy(userId);
     movement.setRack(rack);
+    movement.setBin(bin);
+    movement.setSuggestedRack(suggestedRack);
+    movement.setActualRack(actualRack);
+    movement.setPickedQty(pickedQty);
+    movement.setRequestedQty(requestedQty);
+    movement.setReference(reference);
+    movement.setRemark(remark);
     movement.setCreatedAt(Instant.now());
     return stockMovementRepository.save(movement);
   }

@@ -24,6 +24,18 @@ public class OrderItem {
   @Column(name = "qty")
   private Integer qty;
 
+  @Column(name = "picked_by")
+  private String pickedBy;
+
+  @Column(name = "picked_at")
+  private java.time.LocalDateTime pickedAt;
+
+  @Column(name = "picked_rack")
+  private String pickedRack;
+
+  @Column(name = "is_picked")
+  private Boolean isPicked;
+
   @ManyToOne
   private OrderWorkflow order;
 
@@ -57,6 +69,38 @@ public class OrderItem {
 
   public void setQty(Integer qty) {
     this.qty = qty;
+  }
+
+  public String getPickedBy() {
+    return pickedBy;
+  }
+
+  public void setPickedBy(String pickedBy) {
+    this.pickedBy = pickedBy;
+  }
+
+  public java.time.LocalDateTime getPickedAt() {
+    return pickedAt;
+  }
+
+  public void setPickedAt(java.time.LocalDateTime pickedAt) {
+    this.pickedAt = pickedAt;
+  }
+
+  public String getPickedRack() {
+    return pickedRack;
+  }
+
+  public void setPickedRack(String pickedRack) {
+    this.pickedRack = pickedRack;
+  }
+
+  public Boolean getIsPicked() {
+    return isPicked;
+  }
+
+  public void setIsPicked(Boolean isPicked) {
+    this.isPicked = isPicked;
   }
 
   public OrderWorkflow getOrder() {

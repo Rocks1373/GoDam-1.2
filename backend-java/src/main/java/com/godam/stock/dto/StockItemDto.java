@@ -7,9 +7,13 @@ public class StockItemDto {
   private String partNumber;
   private String sapPn;
   private String description;
+  private String vendorName;
+  private String category;
+  private String subCategory;
   private String uom;
   private int qty;
   private String rack;
+  private String bin;
   private String combineRack;
   private String qtyStatus;
   private boolean serialRequired;
@@ -17,6 +21,9 @@ public class StockItemDto {
   private Integer drumNo;
   private Double drumQty;
   private String parentPn;
+  private Double baseQty;
+  private String pnIndicator;
+  private String receivedAt;
 
   public Long getId() {
     return id;
@@ -66,6 +73,30 @@ public class StockItemDto {
     this.description = description;
   }
 
+  public String getVendorName() {
+    return vendorName;
+  }
+
+  public void setVendorName(String vendorName) {
+    this.vendorName = vendorName;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public String getSubCategory() {
+    return subCategory;
+  }
+
+  public void setSubCategory(String subCategory) {
+    this.subCategory = subCategory;
+  }
+
   public String getUom() {
     return uom;
   }
@@ -88,6 +119,14 @@ public class StockItemDto {
 
   public void setRack(String rack) {
     this.rack = rack;
+  }
+
+  public String getBin() {
+    return bin;
+  }
+
+  public void setBin(String bin) {
+    this.bin = bin;
   }
 
   public String getCombineRack() {
@@ -144,5 +183,29 @@ public class StockItemDto {
 
   public void setParentPn(String parentPn) {
     this.parentPn = parentPn;
+  }
+
+  public Double getBaseQty() {
+    return baseQty;
+  }
+
+  public void setBaseQty(Double baseQty) {
+    this.baseQty = baseQty;
+  }
+
+  public String getPnIndicator() {
+    return pnIndicator;
+  }
+
+  public void setPnIndicator(String pnIndicator) {
+    this.pnIndicator = pnIndicator;
+  }
+
+  public String getReceivedAt() {
+    return receivedAt;
+  }
+
+  public void setReceivedAt(String receivedAt) {
+    this.receivedAt = receivedAt;
   }
 }

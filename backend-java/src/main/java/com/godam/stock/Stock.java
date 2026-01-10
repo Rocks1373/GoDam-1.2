@@ -27,8 +27,17 @@ public class Stock {
   @Column(name = "sap_pn")
   private String sapPn;
 
-  @Column(name = "description")
+  @Column(name = "description", columnDefinition = "TEXT")
   private String description;
+
+  @Column(name = "vendor_name")
+  private String vendorName;
+
+  @Column(name = "category")
+  private String category;
+
+  @Column(name = "sub_category")
+  private String subCategory;
 
   @Column(name = "uom")
   private String uom;
@@ -38,6 +47,9 @@ public class Stock {
 
   @Column(name = "rack")
   private String rack;
+
+  @Column(name = "bin")
+  private String bin;
 
   @Column(name = "combine_rack")
   private String combineRack;
@@ -59,6 +71,15 @@ public class Stock {
 
   @Column(name = "parent_pn")
   private String parentPn;
+
+  @Column(name = "base_qty")
+  private Double baseQty;
+
+  @Column(name = "pn_indicator")
+  private String pnIndicator;
+
+  @Column(name = "received_at")
+  private Instant receivedAt;
 
   @Column(name = "created_at")
   private Instant createdAt;
@@ -111,6 +132,30 @@ public class Stock {
     this.description = description;
   }
 
+  public String getVendorName() {
+    return vendorName;
+  }
+
+  public void setVendorName(String vendorName) {
+    this.vendorName = vendorName;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public String getSubCategory() {
+    return subCategory;
+  }
+
+  public void setSubCategory(String subCategory) {
+    this.subCategory = subCategory;
+  }
+
   public String getUom() {
     return uom;
   }
@@ -133,6 +178,14 @@ public class Stock {
 
   public void setRack(String rack) {
     this.rack = rack;
+  }
+
+  public String getBin() {
+    return bin;
+  }
+
+  public void setBin(String bin) {
+    this.bin = bin;
   }
 
   public String getCombineRack() {
@@ -189,6 +242,30 @@ public class Stock {
 
   public void setParentPn(String parentPn) {
     this.parentPn = parentPn;
+  }
+
+  public Double getBaseQty() {
+    return baseQty;
+  }
+
+  public void setBaseQty(Double baseQty) {
+    this.baseQty = baseQty;
+  }
+
+  public String getPnIndicator() {
+    return pnIndicator;
+  }
+
+  public void setPnIndicator(String pnIndicator) {
+    this.pnIndicator = pnIndicator;
+  }
+
+  public Instant getReceivedAt() {
+    return receivedAt;
+  }
+
+  public void setReceivedAt(Instant receivedAt) {
+    this.receivedAt = receivedAt;
   }
 
   public Instant getCreatedAt() {

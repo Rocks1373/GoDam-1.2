@@ -8,6 +8,8 @@ public class OrderSummaryDto {
   private String customerPo;
   private String customerName;
   private boolean dnCreated;
+  private String pickingStatus;
+  private String checkingStatus;
   private int itemCount;
   private double totalQty;
 
@@ -65,6 +67,22 @@ public class OrderSummaryDto {
 
   public void setDnCreated(boolean dnCreated) {
     this.dnCreated = dnCreated;
+  }
+
+  public String getPickingStatus() {
+    return pickingStatus;
+  }
+
+  public void setPickingStatus(String pickingStatus) {
+    this.pickingStatus = pickingStatus;
+  }
+
+  public String getCheckingStatus() {
+    return checkingStatus;
+  }
+
+  public void setCheckingStatus(String checkingStatus) {
+    this.checkingStatus = checkingStatus;
   }
 
   public int getItemCount() {

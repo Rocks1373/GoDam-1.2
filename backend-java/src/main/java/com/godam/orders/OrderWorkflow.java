@@ -41,6 +41,12 @@ public class OrderWorkflow {
   @Column(name = "dn_created")
   private boolean dnCreated;
 
+  @Column(name = "picking_status")
+  private String pickingStatus;
+
+  @Column(name = "checking_status")
+  private String checkingStatus;
+
   @OneToOne(mappedBy = "order")
   private OrderTransport transport;
 
@@ -101,6 +107,22 @@ public class OrderWorkflow {
 
   public void setDnCreated(boolean dnCreated) {
     this.dnCreated = dnCreated;
+  }
+
+  public String getPickingStatus() {
+    return pickingStatus;
+  }
+
+  public void setPickingStatus(String pickingStatus) {
+    this.pickingStatus = pickingStatus;
+  }
+
+  public String getCheckingStatus() {
+    return checkingStatus;
+  }
+
+  public void setCheckingStatus(String checkingStatus) {
+    this.checkingStatus = checkingStatus;
   }
 
   public OrderTransport getTransport() {

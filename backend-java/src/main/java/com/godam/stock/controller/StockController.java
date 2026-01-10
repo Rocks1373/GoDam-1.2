@@ -2,9 +2,13 @@ package com.godam.stock.controller;
 
 import com.godam.stock.dto.StockItemDto;
 import com.godam.stock.dto.StockPickSuggestionDto;
+import com.godam.stock.dto.StockUploadItemDto;
+import com.godam.stock.dto.StockUploadResultDto;
 import com.godam.stock.service.StockService;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,8 +26,14 @@ public class StockController {
 
   @GetMapping
   public List<StockItemDto> listStock(
-      @RequestParam(value = "warehouseNo", required = false) Optional<String> warehouseNo) {
-    return stockService.listStock(warehouseNo);
+      @RequestParam(value = "warehouseNo", required = false) Optional<String> warehouseNo,
+      @RequestParam(value = "partNumber", required = false) Optional<String> partNumber) {
+    return stockService.listStock(warehouseNo, partNumber);
+  }
+
+  @PostMapping("/bulk")
+  public StockUploadResultDto uploadStock(@RequestBody List<StockUploadItemDto> items) {
+    return stockService.upsertStock(items);
   }
 
   @GetMapping("/{warehouseNo}/{partNumber}")

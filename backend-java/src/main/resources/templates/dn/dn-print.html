@@ -4,210 +4,289 @@
   <meta charset="UTF-8" />
   <title>Delivery Note</title>
   <link rel="stylesheet" th:href="@{/css/print.css}" href="/css/print.css" />
+  <style>
+    :root {
+      --primary-color: #1c3d5a;
+      --secondary-color: #2c5282;
+      --accent-color: #3182ce;
+      --border-color: #2d3748;
+      --text-color: #1a202c;
+      --muted-color: #4a5568;
+      --light-bg: #f7fafc;
+      --white: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4; margin: 10mm; }
+    body { font-family: 'Segoe UI', 'Arial', sans-serif; font-size: 11px; line-height: 1.4; color: var(--text-color); background: var(--white); }
+    .page { width: 100%; max-width: 210mm; margin: 0 auto; padding: 15px; background: var(--white); border: 2px solid #111; position: relative; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid var(--primary-color); margin-bottom: 15px; }
+    .company-section { display: flex; gap: 15px; align-items: center; flex: 1; }
+    .logo-container { width: 90px; height: 70px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--primary-color); border-radius: 6px; background: var(--light-bg); }
+    .logo-text { font-size: 28px; font-weight: 700; color: var(--primary-color); letter-spacing: -1px; }
+    .company-info { flex: 1; }
+    .company-name { font-size: 18px; font-weight: 700; color: var(--primary-color); margin-bottom: 4px; line-height: 1.2; }
+    .company-name-ar { font-size: 16px; font-weight: 700; color: var(--secondary-color); margin-bottom: 4px; direction: rtl; font-family: 'Tahoma', 'Arial', sans-serif; }
+    .company-address { font-size: 9px; color: var(--muted-color); line-height: 1.5; margin-bottom: 2px; }
+    .company-contact { font-size: 9px; color: var(--muted-color); margin-top: 4px; }
+    .company-contact span { margin-right: 12px; }
+    .document-title-section { text-align: right; min-width: 200px; }
+    .document-title { font-size: 22px; font-weight: 700; color: var(--primary-color); margin-bottom: 4px; letter-spacing: 1px; }
+    .document-title-ar { font-size: 20px; font-weight: 700; color: var(--secondary-color); direction: rtl; font-family: 'Tahoma', 'Arial', sans-serif; margin-bottom: 6px; }
+    .code-section { display: flex; gap: 15px; margin-top: 10px; }
+    .qr-box, .barcode-box { border: 1px solid var(--border-color); padding: 8px; text-align: center; min-width: 80px; background: var(--white); }
+    .qr-box .code-label, .barcode-box .code-label { font-size: 8px; color: var(--muted-color); margin-bottom: 4px; }
+    .qr-box .code-placeholder, .barcode-box .code-placeholder { width: 60px; height: 60px; background: var(--light-bg); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 8px; color: var(--muted-color); }
+    .info-panel { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
+    .info-box { border: 1px solid var(--border-color); padding: 10px; background: var(--light-bg); }
+    .info-box-title { font-size: 10px; font-weight: 600; color: var(--primary-color); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }
+    .info-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; border-bottom: 1px dotted #e2e8f0; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--muted-color); font-weight: 500; }
+    .info-value { font-weight: 600; color: var(--text-color); text-align: right; max-width: 60%; word-break: break-word; }
+    .delivery-section { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-bottom: 15px; }
+    .delivery-box { border: 2px solid #222; padding: 12px; background: var(--white); min-height: 90px; }
+    .section-header { font-size: 12px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; border-bottom: 1px solid #222; padding-bottom: 4px; }
+    .delivery-content { font-size: 10px; line-height: 1.6; }
+    .delivery-name { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+    .delivery-address { color: var(--muted-color); margin-bottom: 4px; }
+    .receiver-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; }
+    .receiver-item { font-size: 9px; }
+    .receiver-label { color: var(--muted-color); display: block; margin-bottom: 2px; }
+    .receiver-name { font-weight: 600; }
+    .receiver-phone { color: var(--muted-color); }
+    .items-section { margin-bottom: 15px; }
+    .items-table { width: 100%; border-collapse: collapse; font-size: 10px; border: 2px solid #111; }
+    .items-table thead { background: #111; color: #fff; }
+    .items-table th { padding: 8px 6px; text-align: center; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border: 2px solid #000; }
+    .items-table th:nth-child(1) { width: 40px; }
+    .items-table th:nth-child(2) { width: 100px; }
+    .items-table th:nth-child(3) { width: auto; }
+    .items-table th:nth-child(4) { width: 50px; }
+    .items-table th:nth-child(5) { width: 50px; }
+    .items-table th:nth-child(6) { width: 60px; }
+    .items-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+    .items-table tbody tr:nth-child(even) { background: var(--light-bg); }
+    .items-table td { padding: 6px; text-align: center; vertical-align: middle; border: 2px solid #333; }
+    .items-table td:nth-child(3) { text-align: left; }
+    .item-number { font-weight: 600; color: var(--primary-color); }
+    .item-part { font-weight: 600; font-family: 'Consolas', monospace; font-size: 9px; }
+    .item-desc { font-size: 9px; color: var(--muted-color); }
+    .footer-section { display: grid; gap: 12px; padding-top: 12px; border-top: 2px solid var(--primary-color); }
+    .totals-section { border: 2px solid #222; padding: 6px; background: var(--light-bg); }
+    .total-line { padding: 6px 4px; font-size: 11px; font-weight: 600; border-bottom: 1px dotted #888; }
+    .total-line:last-child { border-bottom: none; }
+    .driver-receiver-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .driver-info-section, .receiver-section { border: 2px solid #222; padding: 10px; background: var(--white); }
+    .driver-line, .receiver-line { font-size: 10px; padding: 4px 0; display: flex; justify-content: space-between; }
+    .receiver-line span:first-child { font-weight: 700; }
+    .footer-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 10px; }
+    .stamp-text { font-weight: 700; color: #111; }
+    .verifier-right { font-size: 10px; font-weight: 600; color: var(--muted-color); }
+    .transport-section { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+    .transport-box { border: 2px solid #222; padding: 10px; background: var(--white); }
+    .transport-title { font-size: 10px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px; text-transform: uppercase; }
+    .transport-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 9px; border-bottom: 1px dotted #e2e8f0; }
+    .optional-info { margin-top: 10px; padding: 8px; background: var(--light-bg); border: 1px solid #e2e8f0; font-size: 9px; color: var(--muted-color); }
+    .optional-info span { margin-right: 15px; }
+    .page-number { position: absolute; bottom: 8mm; right: 12mm; font-size: 11px; font-weight: 600; color: #666; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .page { box-shadow: none; margin: 0; padding: 10mm; } .items-table th { background: var(--primary-color) !important; color: var(--white) !important; } .page-number { position: fixed; } }
+  </style>
 </head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="brand-block">
-      <div class="logo-wrap">°GAPP</div>
-      <div class="brand-text">
-        <div class="brand-name">Gulf Applications</div>
-        <div class="brand-line">Apartment 5001, 50th Floor, Kingdom Tower</div>
-        <div class="brand-line">P.O Box 89098, Riyadh, Saudi Arabia</div>
-        <div class="brand-line">Tel.: +966 1147 28 256</div>
-        <div class="brand-line">Fax: +966 1147 81503</div>
-        <div class="brand-line">http://www.gapp.sa</div>
-      </div>
-
-      <div class="project-banner" th:if="${options.showProject}">
-        <div class="project-line">
-          <span class="meta-label-inline">Project:</span>
-          <span th:text="${dn.projectName}">Project Name</span>
+  <div class="page">
+    <header class="header">
+      <div class="company-section">
+        <div class="logo-container" th:if="${options.showCompanyLogo}">
+          <div class="logo-text">deg GAPP</div>
         </div>
-        <div class="project-line" th:if="${options.showPayment}">
-          <span class="meta-label-inline">Payment Terms:</span>
-          <span th:text="${dn.paymentTerms}">Payment terms</span>
+        <div class="company-info">
+          <div class="company-name" th:text="${dn.companyName}">Gulf Applications</div>
+          <div class="company-name-ar" th:text="${dn.companyNameArabic}">تطبيقات الخليج</div>
+          <div class="company-address" th:text="${dn.companyAddress}">Apartment 5001, 50th Floor, Kingdom Tower, P.O Box 89098, Riyadh, Saudi Arabia</div>
+          <div class="company-contact">
+            <span th:if="${dn.companyPhone}">Tel: <span th:text="${dn.companyPhone}">+966 1147 28 256</span></span>
+            <span th:if="${dn.companyFax}">Fax: <span th:text="${dn.companyFax}">+966 1147 81503</span></span>
+            <span th:if="${dn.companyWebsite}"><span th:text="${dn.companyWebsite}">http://www.gapp.sa</span></span>
+          </div>
+          <div class="optional-info" th:if="${options.showCrNumber or options.showVatInfo}">
+            <span th:if="${options.showCrNumber}">CR: <span th:text="${dn.crNumber}">1234567890</span></span>
+            <span th:if="${options.showVatInfo}">VAT: <span th:text="${dn.vatNumber}">310123456789003</span></span>
+          </div>
         </div>
       </div>
-    </div>
-
+      <div class="document-title-section">
+        <div class="document-title">DELIVERY NOTE</div>
+        <div class="document-title-ar">شهادة تسليم</div>
+        <div class="code-section">
+          <div class="qr-box" th:if="${options.showQrCode}">
+            <div class="code-label">QR Code</div>
+            <div class="code-placeholder">QR</div>
+          </div>
+          <div class="barcode-box" th:if="${options.showBarcode}">
+            <div class="code-label">Barcode</div>
+            <div class="code-placeholder">Bar</div>
+          </div>
+        </div>
+      </div>
+    </header>
     <div class="info-panel">
-      <div class="doc-title">Delivery Note</div>
-
-      <table class="summary">
-        <tr class="field-row">
-          <td class="label">DATE</td>
-          <td class="value" th:text="${dn.date}">01/01/2024</td>
-        </tr>
-        <tr class="field-row">
-          <td class="label">OUTBOUND</td>
-          <td class="value" th:text="${dn.outboundNumber}">OUT-0000</td>
-        </tr>
-        <tr class="field-row">
-          <td class="label">GAPP PO</td>
-          <td class="value" th:text="${dn.gappPo}">SO-00000</td>
-        </tr>
-        <tr class="field-row">
-          <td class="label">CUSTOMER PO</td>
-          <td class="value" th:text="${dn.customerPo}">PO-00000</td>
-        </tr>
-        <tr class="field-row">
-          <td class="label">INVOICE</td>
-          <td class="value" th:text="${dn.invoice}">INV-0000</td>
-        </tr>
-      </table>
-
-      <table class="product-summary">
-        <tr class="field-row">
-          <td class="label">Product</td>
-          <td class="value" th:text="${dn.productName}">Product</td>
-        </tr>
-      </table>
-
-      <div class="sales-panel" th:if="${options.showSalesman}">
-        <div class="sales-title">Sales Details</div>
-        <div class="sales-line"><span class="meta-label-inline">Salesman:</span><span th:text="${dn.salesName}">Name</span></div>
-        <div class="sales-line"><span class="meta-label-inline">Phone:</span><span th:text="${dn.salesPhone}">+966 500 000 000</span></div>
-        <div class="sales-line"><span class="meta-label-inline">Email:</span><span th:text="${dn.salesEmail}">sales@example.com</span></div>
+      <div class="info-box">
+        <div class="info-box-title">Document Information</div>
+        <div class="info-row"><span class="info-label">Date</span><span class="info-value" th:text="${dn.date}">01/01/2024</span></div>
+        <div class="info-row" th:if="${dn.time}"><span class="info-label">Time</span><span class="info-value" th:text="${dn.time}">10:30</span></div>
+        <div class="info-row"><span class="info-label">Outbound</span><span class="info-value" th:text="${dn.outboundNumber}">OUT-0000</span></div>
+        <div class="info-row"><span class="info-label">DN Number</span><span class="info-value" th:text="${dn.dnNumber != null ? dn.dnNumber : 'PENDING'}">PENDING</span></div>
       </div>
-
-      <div class="qr-box" th:if="${options.showQr}">
-        <div>QR</div>
-        <div th:text="${dn.dnNumber != null ? dn.dnNumber : dn.outboundNumber}">DN-REF</div>
+      <div class="info-box">
+        <div class="info-box-title">References</div>
+        <div class="info-row"><span class="info-label">GAPP PO</span><span class="info-value" th:text="${dn.gappPo}">SO-00000</span></div>
+        <div class="info-row"><span class="info-label">Customer PO</span><span class="info-value" th:text="${dn.customerPo}">PO-00000</span></div>
+        <div class="info-row"><span class="info-label">Invoice</span><span class="info-value" th:text="${dn.invoice}">INV-0000</span></div>
+        <div class="info-row" th:if="${dn.productName}"><span class="info-label">Product</span><span class="info-value" th:text="${dn.productName}">Product</span></div>
       </div>
     </div>
-  </div>
-
-  <div class="delivery-row">
-    <div class="delivery-block">
-      <div class="label">Delivery to:</div>
-      <div class="value" th:text="${dn.customerName}">Company Name Pvt Ltd</div>
-      <div class="address" th:text="${dn.address}">Address</div>
-      <div class="address" style="font-size:11px; margin-top:4px;" th:text="${dn.googleLocation}">Google location link</div>
-
-      <div class="receiver-contacts">
-        <div class="receiver">
-          <div class="name" th:text="${dn.receiver1Name}">Receiver 1</div>
-          <div class="phone" th:text="${dn.receiver1Phone}">+966 500 000 000</div>
-        </div>
-        <div class="receiver">
-          <div class="name" th:text="${dn.receiver2Name}">Receiver 2</div>
-          <div class="phone" th:text="${dn.receiver2Phone}">+966 511 111 111</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="items">
-    <table>
-      <thead>
-      <tr>
-        <th>Item #</th>
-        <th>Part Number</th>
-        <th>Description</th>
-        <th>Qty</th>
-        <th>UOM</th>
-        <th>Condition</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr th:each="item, iter : ${dn.items}">
-        <td th:text="${iter.index + 1}">1</td>
-        <td th:text="${item.partNumber}">PN-0000</td>
-        <td th:text="${item.description}">Description</td>
-        <td th:text="${item.qty}">0</td>
-        <td th:text="${item.uom}">PCS</td>
-        <td th:text="${item.condition}">NEW</td>
-      </tr>
-      <tr th:if="${dn.items.size() < 20}" th:each="i : ${#numbers.sequence(1, 20 - dn.items.size())}">
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-      </tr>
-      </tbody>
-    </table>
-    <div class="watermark">Page 1</div>
-  </div>
-
-  <div class="footer">
-    <div class="totals-row">
-      <div>Total: <span th:text="${dn.totals.totalCases}">00</span> CASES</div>
-      <div>Gross weight (KG): <span th:text="${dn.totals.grossWeight}">0</span></div>
-      <div>Volume (CBM): <span th:text="${dn.totals.volume}">0</span></div>
-    </div>
-
-    <div class="delivery-info">
-      <div class="delivered-by">
-        <div class="title">Delivered by:</div>
-        <div class="line">
-          <span>Driver(s)</span>
-          <span class="dots"></span>
-          <span></span>
-        </div>
-        <div class="driver-list" th:if="${!#lists.isEmpty(options.printDrivers)}">
-          <div class="driver-line" th:each="driver : ${options.printDrivers}">
-            <span class="name" th:text="${driver.name}">Driver</span>
-            <span th:text="${driver.mobile}">+966</span>
+    <div class="delivery-section">
+      <div class="delivery-box">
+        <div class="section-header">Delivery To</div>
+        <div class="delivery-content">
+          <div class="delivery-name" th:text="${dn.customerName}">Company Name Pvt Ltd</div>
+          <div class="delivery-address" th:text="${dn.address}">Address</div>
+          <div class="delivery-address" th:if="${dn.googleLocation}" th:text="${dn.googleLocation}">Google location</div>
+          <div class="receiver-grid">
+            <div class="receiver-item" th:if="${dn.receiver1Name}">
+              <span class="receiver-label">Receiver 1</span>
+              <div class="receiver-name" th:text="${dn.receiver1Name}">Name</div>
+              <div class="receiver-phone" th:text="${dn.receiver1Phone}">+966 500 000 000</div>
+            </div>
+            <div class="receiver-item" th:if="${dn.receiver2Name}">
+              <span class="receiver-label">Receiver 2</span>
+              <div class="receiver-name" th:text="${dn.receiver2Name}">Name</div>
+              <div class="receiver-phone" th:text="${dn.receiver2Phone}">+966 511 111 111</div>
+            </div>
           </div>
         </div>
-        <div class="driver-list" th:if="${#lists.isEmpty(options.printDrivers)}">
+      </div>
+      <div class="delivery-box" th:if="${options.showProject}">
+        <div class="section-header">Dispatched From</div>
+        <div class="delivery-content">
+          <div class="delivery-name" th:text="${dn.projectName}">Project Name</div>
+          <div class="delivery-address" th:if="${options.showPayment}" th:text="${dn.paymentTerms}">Payment Terms</div>
+          <div class="receiver-grid" th:if="${options.showSalesman}" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+            <div class="receiver-item" th:if="${dn.salesName}">
+              <span class="receiver-label">Salesman</span>
+              <div class="receiver-name" th:text="${dn.salesName}">Name</div>
+              <div class="receiver-phone" th:text="${dn.salesPhone}">+966 500 000 000</div>
+            </div>
+            <div class="receiver-item" th:if="${dn.salesEmail}">
+              <span class="receiver-label">Email</span>
+              <div class="receiver-phone" th:text="${dn.salesEmail}">sales@example.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="items-section">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>UOM</th>
+            <th>Condition</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="item, iter : ${dn.items}">
+            <td class="item-number" th:text="${iter.index + 1}">1</td>
+            <td class="item-part" th:text="${item.partNumber}">PN-0000</td>
+            <td class="item-desc" th:text="${item.description}">Description</td>
+            <td th:text="${#numbers.formatDecimal(item.qty, 1, 0)}">0</td>
+            <td th:text="${item.uom}">PCS</td>
+            <td th:text="${item.condition}">NEW</td>
+          </tr>
+          <tr th:if="${dn.items.size() < 15}" th:each="i : ${#numbers.sequence(1, 15 - dn.items.size())}">
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="footer-section">
+      <div class="totals-section">
+        <div class="total-line"><strong>Total Parts:</strong> <span th:text="${dn.totals.totalParts}">0</span></div>
+        <div class="total-line"><strong>Total Qty:</strong> <span th:text="${#numbers.formatDecimal(dn.totals.totalQty, 1, 0)}">0</span></div>
+        <div class="total-line"><strong>Total Cases:</strong> <span th:text="${dn.totals.totalCases}">0</span></div>
+        <div class="total-line"><strong>Gross Weight (KG):</strong> <span th:text="${#numbers.formatDecimal(dn.totals.grossWeight, 1, 2)}">0.00</span></div>
+        <div class="total-line"><strong>Volume (CBM):</strong> <span th:text="${#numbers.formatDecimal(dn.totals.volume, 1, 3)}">0.000</span></div>
+      </div>
+      <div class="driver-receiver-wrapper">
+        <div class="driver-info-section">
+          <div class="section-header">Delivery Information</div>
           <div class="driver-line">
-            <span class="name" th:text="${dn.driverName}">Driver</span>
-            <span th:text="${dn.driverMobile}">+966</span>
+            <span>Driver</span>
+            <span th:text="${dn.driverName ?: '___________________'}">Driver Name</span>
+          </div>
+          <div class="driver-line" th:if="${dn.driverMobile}">
+            <span>Mobile</span>
+            <span th:text="${dn.driverMobile}">+966 500 000 000</span>
+          </div>
+          <div class="driver-line" th:if="${dn.carrier}">
+            <span>Carrier</span>
+            <span th:text="${dn.carrier}">Transporter Name</span>
+          </div>
+          <div class="driver-line" th:if="${dn.vehicleType}">
+            <span>Vehicle Type</span>
+            <span th:text="${dn.vehicleType}">Dyna</span>
+          </div>
+          <div class="driver-line" th:if="${dn.vehicleNumber}">
+            <span>Vehicle No</span>
+            <span th:text="${dn.vehicleNumber}">ABC 1234</span>
           </div>
         </div>
-        <div class="line">
-          <span>Carrier</span>
-          <span class="dots"></span>
-          <span th:text="${dn.carrier}">Transporter company</span>
+        <div class="receiver-section">
+          <div class="section-header">Receiver Confirmation</div>
+          <div class="receiver-line">
+            <span>Name</span>
+            <span th:text="${dn.receiver1Name ?: '___________________'}">___________________</span>
+          </div>
+          <div class="receiver-line">
+            <span>Mobile</span>
+            <span th:text="${dn.receiver1Phone ?: '___________________'}">___________________</span>
+          </div>
+          <div class="receiver-line">
+            <span>Signature</span>
+            <span>___________________</span>
+          </div>
+          <div class="receiver-line">
+            <span>Date</span>
+            <span>___________________</span>
+          </div>
+          <div class="footer-row">
+            <div class="stamp-text">Receiver Stamp</div>
+            <div class="verifier-right" th:if="${dn.checkedBy}">Verified by: <span th:text="${dn.checkedBy}">Name</span></div>
+          </div>
         </div>
-        <div class="line">
-          <span>Type of Truck and Qty</span>
-          <span class="dots"></span>
-          <span th:text="${dn.vehicleType}">Dyna</span>
-        </div>
-      </div>
-
-      <div class="checked-by">
-        <div class="title">Checked by:</div>
-        <div class="checker" th:text="${dn.checkedBy}"></div>
       </div>
     </div>
-
-    <div class="receiver-block">
-      <div class="title">Below fields are mandatory to be filled by the Receiver.</div>
-      <div class="receiver-fields">
-        <div class="field">
-          <span>NAME</span>
-          <span class="dots"></span>
-        </div>
-        <div class="field">
-          <span>Mobile no.</span>
-          <span class="dots"></span>
-        </div>
-        <div class="field">
-          <span>SIGN</span>
-          <span class="dots"></span>
-        </div>
-        <div class="field">
-          <span>DATE</span>
-          <span class="dots"></span>
-        </div>
-        <div class="field">
-          <span>STAMP</span>
-          <span class="dots"></span>
-        </div>
+    <div class="transport-section">
+      <div class="transport-box">
+        <div class="transport-title">TRANSPORT INFO</div>
+        <div class="transport-row" th:if="${dn.carrier}"><span>Carrier</span><span th:text="${dn.carrier}">Transporter Name</span></div>
+        <div class="transport-row" th:if="${dn.vehicleType}"><span>Vehicle Type</span><span th:text="${dn.vehicleType}">Dyna</span></div>
+        <div class="transport-row" th:if="${dn.vehicleNumber}"><span>Vehicle No</span><span th:text="${dn.vehicleNumber}">ABC 1234</span></div>
       </div>
-
-      <div class="receiver-footer">
-        <div class="signature-box">Receiver Stamp/Sign</div>
-        <div class="approver">Ahmed H. Hachicho</div>
+      <div class="transport-box">
+        <div class="transport-title">NOTES</div>
+        <div style="height: 40px; border-bottom: 1px dotted #e2e8f0;"></div>
+        <div style="height: 20px; border-bottom: 1px dotted #e2e8f0; margin-top: 4px;"></div>
       </div>
     </div>
+    <div style="text-align: center; font-size: 8px; color: var(--muted-color); margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+      <p>Thank you for your business</p>
+      <p style="margin-top: 2px;" th:text="${dn.companyName} + ' - ' + ${dn.companyWebsite}">Gulf Applications - http://www.gapp.sa</p>
+    </div>
+    <div class="page-number" th:text="${options.pageNumber != null and options.totalPages != null} ? 'Page ' + options.pageNumber + ' of ' + options.totalPages : 'Page 1 of 1'">Page 1 of 1</div>
   </div>
-</div>
 </body>
 </html>

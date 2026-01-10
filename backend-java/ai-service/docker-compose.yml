@@ -1,0 +1,115 @@
+# Docker Compose for GoDAM AI Service
+# Includes Ollama, AI Service, and PostgreSQL integration
+
+services:
+  # PostgreSQL Database - Shared instance for AI service
+  godam-db:
+    image: postgres:15-alpine
+    container_name: godam-db
+    environment:
+      - POSTGRES_DB=godam
+      - POSTGRES_USER=ai_readonly
+      - POSTGRES_PASSWORD=ai_readonly_secure_2024
+    volumes:
+      - godam-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_readonly -d godam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - godam-network
+    restart: unless-stopped
+
+  # Ollama - Offline LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: godam-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+      - ollama-models:/mnt/models
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+    deploy:
+      resources:
+        reservations: {}
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - godam-network
+
+  # AI Service - FastAPI Application
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: godam-ai-service
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_HOST=godam-db
+      - DB_PORT=5432
+      - DB_NAME=godam
+      - AI_DB_USER=ai_readonly
+      - AI_DB_PASSWORD=${AI_DB_PASSWORD:-ai_readonly_secure_2024}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.1:8b
+      - LOG_LEVEL=INFO
+    depends_on:
+      godam-db:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./ai_schema.sql:/app/ai_schema.sql:ro
+      - ./init-db.sh:/app/init-db.sh:ro
+    command: >
+      sh -c "sh /app/init-db.sh && python main.py"
+    networks:
+      - godam-network
+    restart: unless-stopped
+
+volumes:
+  godam-db-data:
+    driver: local
+  ollama-data:
+    driver: local
+  ollama-models:
+    driver: local
+
+networks:
+  godam-network:
+    driver: bridge
+
+# Commands to run after docker-compose up:
+#
+# 1. Pull the Ollama model (run once):
+#    docker compose exec ollama ollama pull llama3.1:8b
+#
+# 2. Initialize AI database tables:
+#    docker compose exec ai-service python -c "
+#        import sys
+#        sys.path.append('/app')
+#        from database import db
+#        db.execute_query('SELECT 1')
+#        print('Database connection OK')
+#    "
+#
+# 3. Check AI service health:
+#    curl http://localhost:8001/health
+#
+# 4. Test chat endpoint:
+#    curl -X POST http://localhost:8001/chat \
+#      -H "Content-Type: application/json" \
+#      -d '{"message": "How many orders are pending?"}'

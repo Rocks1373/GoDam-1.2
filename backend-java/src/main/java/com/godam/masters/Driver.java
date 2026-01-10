@@ -27,6 +27,15 @@ public class Driver {
   @Column(name = "truck_no")
   private String truckNo;
 
+  @Column(name = "iqama_image")
+  private String iqamaImage;
+
+  @Column(name = "istimara_image")
+  private String istimaraImage;
+
+  @Column(name = "insurance_image")
+  private String insuranceImage;
+
   @Column(name = "user_id")
   private Long userId;
 
@@ -74,6 +83,30 @@ public class Driver {
 
   public void setTruckNo(String truckNo) {
     this.truckNo = truckNo;
+  }
+
+  public String getIqamaImage() {
+    return iqamaImage;
+  }
+
+  public void setIqamaImage(String iqamaImage) {
+    this.iqamaImage = iqamaImage;
+  }
+
+  public String getIstimaraImage() {
+    return istimaraImage;
+  }
+
+  public void setIstimaraImage(String istimaraImage) {
+    this.istimaraImage = istimaraImage;
+  }
+
+  public String getInsuranceImage() {
+    return insuranceImage;
+  }
+
+  public void setInsuranceImage(String insuranceImage) {
+    this.insuranceImage = insuranceImage;
   }
 
   public Long getUserId() {

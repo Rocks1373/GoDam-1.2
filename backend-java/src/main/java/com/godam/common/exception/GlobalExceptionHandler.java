@@ -3,6 +3,11 @@ package com.godam.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.stream.Collectors;
+import com.godam.security.ErrorSeverity;
+import com.godam.security.ErrorType;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -42,7 +47,25 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
-    return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", request.getRequestURI());
+    // Log the actual exception for debugging
+    System.err.println("Unhandled exception: " + ex.getClass().getName() + ": " + ex.getMessage());
+    ex.printStackTrace();
+    return build(HttpStatus.INTERNAL_SERVER_ERROR, "Error: " + ex.getMessage(), request.getRequestURI());
+  }
+
+  @ExceptionHandler(BusinessSecurityException.class)
+  public ResponseEntity<MaliciousUploadError> handleSecurity(
+      BusinessSecurityException ex, HttpServletRequest request) {
+    MaliciousUploadError response = new MaliciousUploadError();
+    response.setStatus("BLOCKED_MALICIOUS_UPLOAD");
+    response.setError_type(
+        ex.getErrorType() != null ? ex.getErrorType().name() : ErrorType.SECURITY.name());
+    response.setError_severity(
+        ex.getErrorSeverity() != null ? ex.getErrorSeverity().name() : ErrorSeverity.DANGER.name());
+    response.setColumn(ex.getColumn());
+    response.setReason(ex.getReason());
+    response.setRow(ex.getRow());
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
   }
 
   private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, String path) {
@@ -104,6 +127,63 @@ public class GlobalExceptionHandler {
 
     public void setPath(String path) {
       this.path = path;
+    }
+  }
+
+  public static class MaliciousUploadError {
+    private String status;
+    private String error_type;
+    private String error_severity;
+    private String column;
+    private String reason;
+    private Integer row;
+
+    public String getStatus() {
+      return status;
+    }
+
+    public void setStatus(String status) {
+      this.status = status;
+    }
+
+    public String getError_type() {
+      return error_type;
+    }
+
+    public void setError_type(String error_type) {
+      this.error_type = error_type;
+    }
+
+    public String getError_severity() {
+      return error_severity;
+    }
+
+    public void setError_severity(String error_severity) {
+      this.error_severity = error_severity;
+    }
+
+    public String getColumn() {
+      return column;
+    }
+
+    public void setColumn(String column) {
+      this.column = column;
+    }
+
+    public String getReason() {
+      return reason;
+    }
+
+    public void setReason(String reason) {
+      this.reason = reason;
+    }
+
+    public Integer getRow() {
+      return row;
+    }
+
+    public void setRow(Integer row) {
+      this.row = row;
     }
   }
 }
