@@ -87,11 +87,13 @@ type DeliveryNoteResponse = {
 };
 
 type QuantityRow = {
+  partNumber: string;
   description: string;
-  quantity: string;
+  orderedQty: number;
+  dnQty: string;
 };
 
-const truckTypes = ["Flatbed", "Covered", "Refrigerated", "Container", "Open Deck"];
+const truckTypes = ["Trailer", "Lorry", "Car", "Dyna", "Pickup"];
 const locationTypes = ["Warehouse", "Site", "House", "Office"] as const;
 type LocationType = (typeof locationTypes)[number];
 
@@ -116,6 +118,7 @@ type DeliveryNoteFormState = {
   requirements: string;
   transporterId: string;
   truckType: string;
+  vehicleNumber: string;
   driverId: string;
   driverName: string;
   driverNumber: string;
@@ -188,7 +191,7 @@ const DeliveryNotes = () => {
   });
   const [transporters, setTransporters] = useState<TransporterDto[]>([]);
   const [drivers, setDrivers] = useState<DriverDto[]>([]);
-  const [qtyRows, setQtyRows] = useState<QuantityRow[]>([{ description: "", quantity: "" }]);
+  const [qtyRows, setQtyRows] = useState<QuantityRow[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -199,6 +202,7 @@ const DeliveryNotes = () => {
   // Fields are editable if: editing mode is ON AND fields are not locked AND not finalized
   // Exception: DN Date and Requirements are always editable (unless finalized)
   const canEditFields = isEditing && !fieldsLocked && !isFinalized;
+  const canEditTransport = canEditFields && !savedNoteId;
   // Header fields (Invoice, Outbound, DN Number, DN Date) are always editable unless finalized
   const canEditHeader = !isFinalized;
   // DN Date and Requirements are always editable (unless finalized)
@@ -249,7 +253,8 @@ const DeliveryNotes = () => {
     receiver2Name: "",
     requirements: "",
     transporterId: "",
-    truckType: truckTypes[0],
+    truckType: "",
+    vehicleNumber: "",
     driverId: "",
     driverName: "",
     driverNumber: "",
@@ -273,17 +278,14 @@ const DeliveryNotes = () => {
   // Build print data from current form state
   const buildPrintData = (): DeliveryNotePrintData => {
     const items = qtyRows
-      .filter((row) => row.description.trim() && Number(row.quantity) > 0)
-      .map((row, index) => {
-        const parts = row.description.split(" - ");
-        return {
-          itemNumber: index + 1,
-          partNumber: parts.length > 1 ? parts[0] : "",
-          description: parts.length > 1 ? parts.slice(1).join(" - ") : row.description,
-          quantity: Number(row.quantity),
-          uom: "PCS",
-        };
-      });
+      .filter((row) => row.partNumber.trim() && Number(row.dnQty) > 0)
+      .map((row, index) => ({
+        itemNumber: index + 1,
+        partNumber: row.partNumber,
+        description: row.description,
+        quantity: Number(row.dnQty),
+        uom: "PCS",
+      }));
 
     return {
       dnNumber: formState.dnNumber || undefined,
@@ -402,8 +404,10 @@ const DeliveryNotes = () => {
         customerName: "",
         customerPo: "",
         gappPo: "",
+        truckType: "",
+        vehicleNumber: "",
       }));
-      setQtyRows([{ description: "", quantity: "" }]);
+      setQtyRows([]);
       return;
     }
 
@@ -492,6 +496,7 @@ const DeliveryNotes = () => {
 
         // Get outbound info for customer data
         const outboundResponse = await api.get<OutboundInfoDto>(`/outbound/${selectedOrderId}`);
+        setError(null);
         setOutboundInfo(outboundResponse.data);
         setError(null);
         
@@ -620,7 +625,7 @@ const DeliveryNotes = () => {
               driverName: driver.driverName,
               driverNumber: driver.driverNumber,
               driverIdNumber: driver.idNumber ?? "",
-              truckType: driver.truckNo ?? formState.truckType,
+              vehicleNumber: driver.truckNo ?? formState.vehicleNumber,
             });
           } else {
             // Driver ID exists but not in loaded list, just set the ID
@@ -628,14 +633,14 @@ const DeliveryNotes = () => {
           }
         }
         
-        // Auto-fill items from order_items (editable)
+        // Auto-fill items from order_items
         if (orderItems.length > 0) {
           setQtyRows(
             orderItems.map((item) => ({
-              description: item.description
-                ? `${item.partNumber ?? ""} - ${item.description}`
-                : item.partNumber ?? "",
-              quantity: item.qty != null ? String(item.qty) : "",
+              partNumber: item.partNumber ?? "",
+              description: item.description ?? "",
+              orderedQty: item.qty ?? 0,
+              dnQty: item.qty != null ? String(item.qty) : "",
             }))
           );
         } else {
@@ -797,7 +802,17 @@ const DeliveryNotes = () => {
   };
 
 
-  const isValidQuantity = () => qtyRows.some((row) => row.description.trim() && Number(row.quantity) > 0);
+  const isValidQuantity = () =>
+    qtyRows.length > 0 &&
+    qtyRows.every((row) => {
+      const qty = Number(row.dnQty);
+      return row.partNumber.trim() && qty > 0 && qty <= row.orderedQty;
+    });
+
+  const needsVehicleNumber = formState.truckType !== "Car";
+  const vehicleNumberValue = formState.vehicleNumber.trim();
+  const isVehicleNumberValid =
+    !needsVehicleNumber || /^[a-zA-Z0-9-]{5,}$/.test(vehicleNumberValue);
 
   const hasLocation = Boolean(
     formState.customerLocationText.trim() || formState.address.trim()
@@ -814,8 +829,10 @@ const DeliveryNotes = () => {
       formState.invoiceNumber.trim() &&
       formState.transporterId &&
       formState.driverId &&
+      formState.truckType &&
       isValidQuantity() &&
-      hasLocation
+      hasLocation &&
+      isVehicleNumberValid
   );
 
   const executeSave = async (status: "COMPLETE" | "INCOMPLETE") => {
@@ -842,20 +859,20 @@ const DeliveryNotes = () => {
         truckType: formState.truckType,
         status,
         quantities: qtyRows
-          .filter((row) => row.description.trim() && Number(row.quantity) > 0)
+          .filter((row) => row.partNumber.trim() && Number(row.dnQty) > 0)
           .map((row) => ({
-            description: row.description.trim(),
-            quantity: Number(row.quantity),
+            description: `${row.partNumber} - ${row.description}`.trim(),
+            quantity: Number(row.dnQty),
           })),
       };
 
       let response;
       if (savedNoteId) {
         // Update existing DN
-        response = await api.put<DeliveryNoteResponse>(`/api/delivery-note/${savedNoteId}`, payload);
+        response = await api.put<DeliveryNoteResponse>(`/delivery-note/${savedNoteId}`, payload);
       } else {
         // Create new DN
-        response = await api.post<DeliveryNoteResponse>("/api/delivery-note", payload);
+        response = await api.post<DeliveryNoteResponse>("/delivery-note", payload);
       }
 
       setSavedNoteId(response.data.id);
@@ -886,7 +903,7 @@ const DeliveryNotes = () => {
       setError("Invoice number is required.");
       return;
     }
-    if (!selectedCustomer) {
+    if (!hasValidCustomer) {
       setError("Customer is required.");
       return;
     }
@@ -898,8 +915,16 @@ const DeliveryNotes = () => {
       setError("Driver is required.");
       return;
     }
+    if (!formState.truckType) {
+      setError("Truck type is required.");
+      return;
+    }
+    if (!isVehicleNumberValid) {
+      setError("Vehicle number is required and must be at least 5 characters.");
+      return;
+    }
     if (!isValidQuantity()) {
-      setError("At least one item with quantity > 0 is required.");
+      setError("All item quantities must be > 0 and not exceed ordered qty.");
       return;
     }
     
@@ -925,7 +950,7 @@ const DeliveryNotes = () => {
       // If saved, use backend PDF endpoint
       if (savedNoteId) {
         const filename = `DN_${formState.dnNumber || savedNoteId}.pdf`;
-        const response = await api.get<Blob>(`/api/delivery-note/${savedNoteId}/pdf`, {
+      const response = await api.get<Blob>(`/delivery-note/${savedNoteId}/pdf`, {
           responseType: "blob",
         });
         const url = window.URL.createObjectURL(response.data);
@@ -1018,7 +1043,7 @@ const DeliveryNotes = () => {
         driverName: response.data.driverName,
         driverNumber: response.data.driverNumber,
         driverIdNumber: response.data.idNumber ?? "",
-        truckType: response.data.truckNo ?? formState.truckType,
+        vehicleNumber: response.data.truckNo ?? formState.vehicleNumber,
       });
       setShowDriverModal(false);
       setDriverForm({ driverName: "", driverNumber: "", idNumber: "", truckNo: "" });
@@ -1075,7 +1100,7 @@ const DeliveryNotes = () => {
               type="button"
               className="btn ghost"
               onClick={handleDownloadPdf}
-              disabled={!savedNoteId}
+              disabled={!savedNoteId || !canSave}
             >
               Download
             </button>
@@ -1083,7 +1108,7 @@ const DeliveryNotes = () => {
               type="button"
               className="btn ghost"
               onClick={handlePrint}
-              disabled={!savedNoteId && !isPrintPreviewOpen}
+              disabled={(!savedNoteId && !isPrintPreviewOpen) || !canSave}
             >
               Print
             </button>
@@ -1351,7 +1376,7 @@ const DeliveryNotes = () => {
                       updateForm({ transporterId: "" });
                     }
                   }}
-                  disabled={!canEditFields}
+                  disabled={!canEditTransport}
                 >
                   <option value="">Select transporter</option>
                   {transporters.map((transporter) => (
@@ -1364,12 +1389,15 @@ const DeliveryNotes = () => {
                   type="button"
                   className="btn ghost small"
                   onClick={() => setShowTransporterModal(true)}
-                  disabled={!canEditFields}
+                  disabled={!canEditTransport}
                 >
                   Add
                 </button>
               </div>
             </label>
+            {!formState.transporterId && isEditing && (
+              <p className="form-error">Transporter selection is required.</p>
+            )}
             {selectedTransporter && (
               <>
                 <label>
@@ -1399,8 +1427,9 @@ const DeliveryNotes = () => {
                 onChange={(event) =>
                   updateForm({ truckType: event.target.value })
                 }
-                disabled={!canEditFields}
+                disabled={!canEditTransport}
               >
+                <option value="">Select truck type</option>
                 {truckTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -1408,41 +1437,67 @@ const DeliveryNotes = () => {
                 ))}
               </select>
             </label>
-            <label className="full-span">
-              Items (Auto-loaded from order - editable)
+            {!formState.truckType && isEditing && (
+              <p className="form-error">Truck type is required.</p>
+            )}
+            <label>
+              Vehicle Number
+              <input
+                type="text"
+                value={formState.vehicleNumber}
+                onChange={(event) => updateForm({ vehicleNumber: event.target.value })}
+                placeholder="Enter vehicle number"
+                readOnly={!canEditTransport}
+              />
+            </label>
+            {needsVehicleNumber && isEditing && !isVehicleNumberValid && (
+              <p className="form-error">
+                Vehicle number is required (min 5 alphanumeric characters).
+              </p>
+            )}
+            <div className="full-span">
+              <h4>Items (Auto-loaded from order)</h4>
               <div className="qty-table">
-                {qtyRows.map((row, index) => (
-                  <div key={index} className="qty-row">
-                    <input
-                      type="text"
-                      value={row.description}
-                      onChange={(e) => {
-                        const newRows = [...qtyRows];
-                        newRows[index] = { ...newRows[index], description: e.target.value };
-                        setQtyRows(newRows);
-                      }}
-                      placeholder="Item description"
-                      disabled={isFinalized}
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      value={row.quantity}
-                      onChange={(e) => {
-                        const newRows = [...qtyRows];
-                        newRows[index] = { ...newRows[index], quantity: e.target.value };
-                        setQtyRows(newRows);
-                      }}
-                      placeholder="Qty"
-                      disabled={isFinalized}
-                    />
-                  </div>
-                ))}
+                <div className="qty-row qty-header">
+                  <span>Item Code</span>
+                  <span>Description</span>
+                  <span>Ordered Qty</span>
+                  <span>DN Qty</span>
+                </div>
+                {qtyRows.map((row, index) => {
+                  const qtyValue = Number(row.dnQty);
+                  const qtyInvalid = !row.dnQty || qtyValue <= 0 || qtyValue > row.orderedQty;
+                  return (
+                    <div key={`${row.partNumber}-${index}`} className="qty-row">
+                      <input type="text" value={row.partNumber} readOnly />
+                      <input type="text" value={row.description} readOnly />
+                      <input type="number" value={row.orderedQty} readOnly />
+                      <div className="qty-input">
+                        <input
+                          type="number"
+                          min={1}
+                          max={row.orderedQty}
+                          value={row.dnQty}
+                          onChange={(e) => {
+                            const newRows = [...qtyRows];
+                            newRows[index] = { ...newRows[index], dnQty: e.target.value };
+                            setQtyRows(newRows);
+                          }}
+                          placeholder="DN Qty"
+                          disabled={!canEditFields}
+                        />
+                        {isEditing && qtyInvalid && (
+                          <span className="form-error">Qty must be 1–{row.orderedQty}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
                 {qtyRows.length === 0 && (
                   <p className="muted">Items will be loaded automatically when outbound is selected.</p>
                 )}
               </div>
-            </label>
+            </div>
             <label>
               Driver Name
               <div className="input-with-addon">
@@ -1457,7 +1512,7 @@ const DeliveryNotes = () => {
                         driverName: selected.driverName,
                         driverNumber: selected.driverNumber,
                         driverIdNumber: selected.idNumber ?? "",
-                        truckType: selected.truckNo ?? formState.truckType,
+                        vehicleNumber: selected.truckNo ?? formState.vehicleNumber,
                       });
                     } else {
                       updateForm({
@@ -1468,12 +1523,12 @@ const DeliveryNotes = () => {
                       });
                     }
                   }}
-                  disabled={!canEditFields}
+                  disabled={!canEditTransport}
                 >
                   <option value="">Select driver</option>
                   {drivers.map((driver) => (
                     <option key={driver.id} value={driver.id}>
-                      {driver.driverName} / {driver.driverNumber}
+                      {driver.driverName} – {driver.driverNumber}
                     </option>
                   ))}
                 </select>
@@ -1481,12 +1536,15 @@ const DeliveryNotes = () => {
                   type="button"
                   className="btn ghost small"
                   onClick={() => setShowDriverModal(true)}
-                  disabled={!canEditFields}
+                  disabled={!canEditTransport}
                 >
                   Add
                 </button>
               </div>
             </label>
+            {!formState.driverId && isEditing && (
+              <p className="form-error">Driver selection is required.</p>
+            )}
             {selectedDriver && (
               <>
                 <label>

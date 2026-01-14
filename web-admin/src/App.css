@@ -366,13 +366,26 @@
 
 .qty-row {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) 100px 90px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) 120px 140px;
   gap: 10px;
   align-items: center;
 }
 
 .qty-row input {
   border-radius: 10px;
+}
+
+.qty-header {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.qty-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .gallery {
