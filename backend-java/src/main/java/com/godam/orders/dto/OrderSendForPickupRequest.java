@@ -4,6 +4,7 @@ public class OrderSendForPickupRequest {
   private String note;
   private String reason;
   private String performedBy;
+  private String ownerPassword;
 
   public String getNote() {
     return note;
@@ -27,5 +28,13 @@ public class OrderSendForPickupRequest {
 
   public void setPerformedBy(String performedBy) {
     this.performedBy = performedBy;
+  }
+
+  public String getOwnerPassword() {
+    return ownerPassword;
+  }
+
+  public void setOwnerPassword(String ownerPassword) {
+    this.ownerPassword = ownerPassword;
   }
 }

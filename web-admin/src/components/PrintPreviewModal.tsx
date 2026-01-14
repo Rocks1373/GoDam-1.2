@@ -29,7 +29,15 @@ const PrintPreviewModal = ({
           </button>
         </div>
         <div className="print-preview-body">
-          <div className="print-preview-sheet">
+          <div className="print-preview-sheet" style={{
+            width: "210mm",
+            minHeight: "297mm",
+            aspectRatio: "210 / 297",
+            maxWidth: "100%",
+            margin: "0 auto",
+            backgroundColor: "white",
+            boxShadow: "0 0 20px rgba(0,0,0,0.3)",
+          }}>
             {preview}
           </div>
         </div>

@@ -2,20 +2,38 @@ package com.godam.movements.controller;
 
 import com.godam.movements.MovementType;
 import com.godam.movements.StockMovement;
+import com.godam.movements.dto.MovementDeleteRequest;
+import com.godam.movements.dto.MovementViewDto;
+import com.godam.movements.service.MovementAdminService;
 import com.godam.movements.service.StockMovementService;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/movements")
+@RequestMapping({"/movements", "/api/movements"})
 public class MovementController {
   private final StockMovementService stockMovementService;
+  private final MovementAdminService movementAdminService;
 
-  public MovementController(StockMovementService stockMovementService) {
+  public MovementController(
+      StockMovementService stockMovementService,
+      MovementAdminService movementAdminService) {
     this.stockMovementService = stockMovementService;
+    this.movementAdminService = movementAdminService;
+  }
+
+  @GetMapping
+  public List<MovementViewDto> listMovements(
+      @RequestParam(value = "partNumber", required = false) String partNumber,
+      @RequestParam(value = "description", required = false) String description,
+      @RequestParam(value = "movementType", required = false) String movementType) {
+    return movementAdminService.listMovements(partNumber, description, movementType);
   }
 
   @GetMapping("/{outboundNumber}")
@@ -28,6 +46,13 @@ public class MovementController {
     List<StockMovement> movements = stockMovementService.getMovementsByOutbound(outboundNumber);
     MovementType status = movements.isEmpty() ? null : movements.get(movements.size() - 1).getMovementType();
     return MovementStatusResponse.from(status);
+  }
+
+  @DeleteMapping("/{id}")
+  public void deleteMovement(
+      @PathVariable("id") Long id,
+      @RequestBody MovementDeleteRequest request) {
+    movementAdminService.deleteMovement(id, request);
   }
 
   public static class MovementStatusResponse {

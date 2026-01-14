@@ -3,12 +3,26 @@ package com.godam.delivery.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DeliveryNoteRequest {
   @NotBlank
   private String dnNumber;
+
+  private String customerPo;
+
+  private String gappPo;
+
+  @jakarta.validation.constraints.NotBlank
+  private String invoiceNumber;
+
+  private String preparedBy;
+
+  private String truckType;
+
+  private Instant dnDate;
 
   @NotBlank
   private String outboundNumber;
@@ -28,6 +42,8 @@ public class DeliveryNoteRequest {
   @NotNull
   private Long driverId;
 
+  private Long orderId;
+
   @NotEmpty
   private List<DeliveryNoteQtyRequest> quantities = new ArrayList<>();
 
@@ -39,6 +55,54 @@ public class DeliveryNoteRequest {
 
   public void setDnNumber(String dnNumber) {
     this.dnNumber = dnNumber;
+  }
+
+  public String getCustomerPo() {
+    return customerPo;
+  }
+
+  public void setCustomerPo(String customerPo) {
+    this.customerPo = customerPo;
+  }
+
+  public String getGappPo() {
+    return gappPo;
+  }
+
+  public void setGappPo(String gappPo) {
+    this.gappPo = gappPo;
+  }
+
+  public String getInvoiceNumber() {
+    return invoiceNumber;
+  }
+
+  public void setInvoiceNumber(String invoiceNumber) {
+    this.invoiceNumber = invoiceNumber;
+  }
+
+  public String getPreparedBy() {
+    return preparedBy;
+  }
+
+  public void setPreparedBy(String preparedBy) {
+    this.preparedBy = preparedBy;
+  }
+
+  public String getTruckType() {
+    return truckType;
+  }
+
+  public void setTruckType(String truckType) {
+    this.truckType = truckType;
+  }
+
+  public Instant getDnDate() {
+    return dnDate;
+  }
+
+  public void setDnDate(Instant dnDate) {
+    this.dnDate = dnDate;
   }
 
   public String getOutboundNumber() {
@@ -95,6 +159,14 @@ public class DeliveryNoteRequest {
 
   public void setDriverId(Long driverId) {
     this.driverId = driverId;
+  }
+
+  public Long getOrderId() {
+    return orderId;
+  }
+
+  public void setOrderId(Long orderId) {
+    this.orderId = orderId;
   }
 
   public List<DeliveryNoteQtyRequest> getQuantities() {

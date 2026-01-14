@@ -2,6 +2,7 @@ package com.godam.stock.controller;
 
 import com.godam.stock.dto.StockItemDto;
 import com.godam.stock.dto.StockPickSuggestionDto;
+import com.godam.stock.dto.StockAdjustmentRequest;
 import com.godam.stock.dto.StockUploadItemDto;
 import com.godam.stock.dto.StockUploadResultDto;
 import com.godam.stock.service.StockService;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/stock")
+@RequestMapping({"/stock", "/api/stock"})
 public class StockController {
   private final StockService stockService;
 
@@ -34,6 +35,11 @@ public class StockController {
   @PostMapping("/bulk")
   public StockUploadResultDto uploadStock(@RequestBody List<StockUploadItemDto> items) {
     return stockService.upsertStock(items);
+  }
+
+  @PostMapping("/adjustment")
+  public void adjustStock(@RequestBody StockAdjustmentRequest request) {
+    stockService.adjustStock(request);
   }
 
   @GetMapping("/{warehouseNo}/{partNumber}")

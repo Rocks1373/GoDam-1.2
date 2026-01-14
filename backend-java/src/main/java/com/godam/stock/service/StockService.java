@@ -1,9 +1,13 @@
 package com.godam.stock.service;
 
+import com.godam.common.User;
+import com.godam.common.UserRepository;
 import com.godam.movements.MovementType;
 import com.godam.movements.repository.StockMovementRepository;
+import com.godam.movements.service.StockMovementService;
 import com.godam.security.UploadValidationPipeline;
 import com.godam.stock.Stock;
+import com.godam.stock.dto.StockAdjustmentRequest;
 import com.godam.stock.dto.StockExpandedDto;
 import com.godam.stock.dto.StockItemDto;
 import com.godam.stock.dto.StockPickContext;
@@ -25,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,14 +45,23 @@ public class StockService {
 
   private final StockRepository stockRepository;
   private final StockMovementRepository stockMovementRepository;
+  private final StockMovementService stockMovementService;
+  private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
   private final UploadValidationPipeline uploadValidationPipeline;
 
   public StockService(
       StockRepository stockRepository,
       StockMovementRepository stockMovementRepository,
+      StockMovementService stockMovementService,
+      UserRepository userRepository,
+      PasswordEncoder passwordEncoder,
       UploadValidationPipeline uploadValidationPipeline) {
     this.stockRepository = stockRepository;
     this.stockMovementRepository = stockMovementRepository;
+    this.stockMovementService = stockMovementService;
+    this.userRepository = userRepository;
+    this.passwordEncoder = passwordEncoder;
     this.uploadValidationPipeline = uploadValidationPipeline;
   }
 
@@ -76,6 +90,102 @@ public class StockService {
       result.add(toDto(row));
     }
     return result;
+  }
+
+  @Transactional
+  public void adjustStock(StockAdjustmentRequest request) {
+    if (request.getPartNumber() == null || request.getPartNumber().isBlank()) {
+      throw new com.godam.common.exception.StockValidationException("Part number is required");
+    }
+    if (request.getPassword() == null || request.getPassword().isBlank()) {
+      throw new com.godam.common.exception.StockValidationException("Admin password is required");
+    }
+    if (request.getPerformedBy() == null || request.getPerformedBy().isBlank()) {
+      throw new com.godam.common.exception.StockValidationException("Admin username is required");
+    }
+    Integer addQty = request.getAddQty();
+    Integer reduceQty = request.getReduceQty();
+    boolean hasAdd = addQty != null && addQty > 0;
+    boolean hasReduce = reduceQty != null && reduceQty > 0;
+    if (hasAdd == hasReduce) {
+      throw new com.godam.common.exception.StockValidationException(
+          "Provide either add qty or reduce qty");
+    }
+
+    User user = userRepository.findByUsername(request.getPerformedBy())
+        .orElseThrow(() -> new com.godam.common.exception.StockValidationException("Admin user not found"));
+    if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+      throw new com.godam.common.exception.StockValidationException("Only ADMIN can adjust stock");
+    }
+    if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+      throw new com.godam.common.exception.StockValidationException("Invalid admin password");
+    }
+
+    String partNumber = request.getPartNumber().trim();
+    List<Stock> rows = stockRepository.findByPartNumberOrderByCreatedAtAsc(partNumber);
+    if (rows.isEmpty()) {
+      throw new com.godam.common.exception.StockValidationException("No stock row found for part " + partNumber);
+    }
+
+    if (hasReduce) {
+      int reduce = reduceQty == null ? 0 : reduceQty;
+      int totalQty = rows.stream().mapToInt(Stock::getQty).sum();
+      if (reduce > totalQty) {
+        throw new com.godam.common.exception.StockValidationException(
+            "Reduce qty exceeds available stock for part " + partNumber);
+      }
+      int remaining = reduce;
+      for (Stock row : rows) {
+        if (remaining <= 0) {
+          break;
+        }
+        int rowQty = row.getQty();
+        int deduct = Math.min(rowQty, remaining);
+        row.setQty(rowQty - deduct);
+        stockRepository.save(row);
+        remaining -= deduct;
+      }
+      Stock referenceRow = rows.get(0);
+      stockMovementService.logMovement(
+          MovementType.A102_ADJUSTMENT_DECREASE,
+          referenceRow.getWarehouseNo(),
+          referenceRow.getStorageLocation(),
+          partNumber,
+          -reduce,
+          null,
+          null,
+          user.getUserId(),
+          referenceRow.getRack(),
+          referenceRow.getBin(),
+          referenceRow.getCombineRack(),
+          referenceRow.getRack(),
+          reduce,
+          reduce,
+          "ADMIN_ADJUSTMENT",
+          "decrease");
+    } else if (hasAdd) {
+      int add = addQty == null ? 0 : addQty;
+      Stock target = rows.get(0);
+      target.setQty(target.getQty() + add);
+      stockRepository.save(target);
+      stockMovementService.logMovement(
+          MovementType.A101_ADJUSTMENT_INCREASE,
+          target.getWarehouseNo(),
+          target.getStorageLocation(),
+          partNumber,
+          add,
+          null,
+          null,
+          user.getUserId(),
+          target.getRack(),
+          target.getBin(),
+          target.getCombineRack(),
+          target.getRack(),
+          add,
+          add,
+          "ADMIN_ADJUSTMENT",
+          "increase");
+    }
   }
 
   @Transactional
@@ -376,6 +486,19 @@ public class StockService {
 
   @Transactional(readOnly = true)
   public StockPickContext preparePickContext(String partNumber, int requiredQty, String pickedRack) {
+    return preparePickContextInternal(partNumber, requiredQty, pickedRack, false);
+  }
+
+  @Transactional(readOnly = true)
+  public StockPickContext preparePickContextAllowNegative(String partNumber, int requiredQty, String pickedRack) {
+    return preparePickContextInternal(partNumber, requiredQty, pickedRack, true);
+  }
+
+  private StockPickContext preparePickContextInternal(
+      String partNumber,
+      int requiredQty,
+      String pickedRack,
+      boolean allowNegative) {
     String resolvedPartNumber = resolveMainPartNumber(partNumber);
     validateParentTotals(resolvedPartNumber);
     validateDrumSplitTotals(resolvedPartNumber);
@@ -390,7 +513,7 @@ public class StockService {
         List.of(MovementType.O103_PICKED, MovementType.O104_CHECKED));
     int totalQty = rows.stream().mapToInt(Stock::getQty).sum();
     int available = totalQty - parkedQty;
-    if (available < requiredQty) {
+    if (!allowNegative && available < requiredQty) {
       throw new com.godam.common.exception.StockValidationException(
           "Requested qty exceeds available stock for part " + resolvedPartNumber);
     }

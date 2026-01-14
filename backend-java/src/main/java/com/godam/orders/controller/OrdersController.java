@@ -7,6 +7,7 @@ import com.godam.orders.dto.OrderPickRequest;
 import com.godam.orders.dto.OrderStatusUpdateRequest;
 import com.godam.orders.dto.OrderOverrideRequest;
 import com.godam.orders.dto.OrderItemDto;
+import com.godam.orders.dto.OrderItemUpdateRequest;
 import com.godam.orders.dto.OrderViewDto;
 import com.godam.orders.dto.OrderEditRequest;
 import com.godam.orders.dto.OrderDeleteRequest;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping({"/orders", "/api/orders"})
 public class OrdersController {
   private final OrdersService ordersService;
 
@@ -65,6 +66,13 @@ public class OrdersController {
       @PathVariable("orderId") Long orderId,
       @RequestBody OrderEditRequest request) {
     ordersService.editOrder(orderId, request);
+  }
+
+  @PatchMapping("/{orderId}/items")
+  public OrderItemDto updateOrderItem(
+      @PathVariable("orderId") Long orderId,
+      @RequestBody OrderItemUpdateRequest request) {
+    return ordersService.updateOrderItemQty(orderId, request);
   }
 
   @DeleteMapping("/{orderId}")

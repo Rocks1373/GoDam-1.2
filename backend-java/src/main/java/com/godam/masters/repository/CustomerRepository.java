@@ -14,12 +14,17 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
   Optional<Customer> findBySapCustomerIdIgnoreCase(String sapCustomerId);
 
+  List<Customer> findAllBySapCustomerIdIgnoreCase(String sapCustomerId);
+
   @Query(
       "select c from Customer c where c.active = true and " +
       "(lower(c.name) like lower(concat('%', :query, '%')) " +
-      "or lower(c.locationText) like lower(concat('%', :query, '%'))) " +
+      "or lower(c.locationText) like lower(concat('%', :query, '%')) " +
+      "or lower(c.sapCustomerId) like lower(concat('%', :query, '%'))) " +
       "order by c.name")
   List<Customer> searchActive(@Param("query") String query);
 
   List<Customer> findTop20ByActiveTrueOrderByNameAsc();
+
+  List<Customer> findAllByActiveTrueOrderByNameAsc();
 }

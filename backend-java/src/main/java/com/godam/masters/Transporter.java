@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "Transporters")
+@Table(name = "transporters")
 public class Transporter {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,8 +21,17 @@ public class Transporter {
   @Column(name = "contact_name")
   private String contactName;
 
+  @Column(name = "phone")
+  private String phone;
+
   @Column(name = "email")
   private String email;
+
+  @Column(name = "vat_number")
+  private String vatNumber;
+
+  @Column(name = "cr_number")
+  private String crNumber;
 
   @Column(name = "is_active")
   private boolean isActive;
@@ -60,6 +69,30 @@ public class Transporter {
 
   public void setEmail(String email) {
     this.email = email;
+  }
+
+  public String getPhone() {
+    return phone;
+  }
+
+  public void setPhone(String phone) {
+    this.phone = phone;
+  }
+
+  public String getVatNumber() {
+    return vatNumber;
+  }
+
+  public void setVatNumber(String vatNumber) {
+    this.vatNumber = vatNumber;
+  }
+
+  public String getCrNumber() {
+    return crNumber;
+  }
+
+  public void setCrNumber(String crNumber) {
+    this.crNumber = crNumber;
   }
 
   public boolean isActive() {

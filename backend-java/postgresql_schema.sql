@@ -2,7 +2,7 @@
 -- This script mirrors the SQL Server definitions while using PostgreSQL-native data types,
 -- constraints, and idiomatic naming (quoted identifiers keep compatibility with the existing JPA entities).
 
-CREATE TABLE IF NOT EXISTS "Users" (
+CREATE TABLE IF NOT EXISTS users (
   user_id BIGSERIAL PRIMARY KEY,
   username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(512) NOT NULL,
@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS "Users" (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS "IX_Users_Active" ON "Users"(is_active);
+CREATE INDEX IF NOT EXISTS ix_users_active ON users(is_active);
 
-CREATE TABLE IF NOT EXISTS "Warehouses" (
+CREATE TABLE IF NOT EXISTS warehouses (
   warehouse_id SERIAL PRIMARY KEY,
   warehouse_no VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS warehouse_addresses (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS "Stock" (
+CREATE TABLE IF NOT EXISTS stock (
   id SERIAL PRIMARY KEY,
   warehouse_no VARCHAR(50) NOT NULL,
   storage_location VARCHAR(100) NOT NULL,
@@ -75,20 +75,21 @@ CREATE TABLE IF NOT EXISTS "Stock" (
   deleted_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_Stock_Warehouse" FOREIGN KEY (warehouse_no) REFERENCES "Warehouses"(warehouse_no),
-  CONSTRAINT "FK_Stock_WarehouseId" FOREIGN KEY (warehouse_id) REFERENCES "Warehouses"(warehouse_id),
-  CONSTRAINT "FK_Stock_User" FOREIGN KEY (updated_by) REFERENCES "Users"(user_id),
-  CONSTRAINT "FK_Stock_DeletedBy" FOREIGN KEY (deleted_by) REFERENCES "Users"(user_id),
-  CONSTRAINT "FK_Stock_OverrideBy" FOREIGN KEY (qty_override_by) REFERENCES "Users"(user_id),
-  CONSTRAINT "UQ_Stock" UNIQUE (warehouse_no, storage_location, part_number, rack, drum_no)
+  CONSTRAINT fk_stock_warehouse FOREIGN KEY (warehouse_no) REFERENCES warehouses(warehouse_no),
+  CONSTRAINT fk_stock_warehouse_id FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
+  CONSTRAINT fk_stock_user FOREIGN KEY (updated_by) REFERENCES users(user_id),
+  CONSTRAINT fk_stock_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(user_id),
+  CONSTRAINT fk_stock_override_by FOREIGN KEY (qty_override_by) REFERENCES users(user_id),
+  CONSTRAINT uq_stock UNIQUE (warehouse_no, storage_location, part_number, rack, drum_no),
+  CONSTRAINT uq_stock_part_warehouse UNIQUE (part_number, warehouse_no)
 );
-CREATE INDEX IF NOT EXISTS "IX_Stock_PartNumber" ON "Stock"(part_number);
-CREATE INDEX IF NOT EXISTS "IX_Stock_ParentPn" ON "Stock"(parent_pn);
-CREATE INDEX IF NOT EXISTS "IX_Stock_Warehouse" ON "Stock"(warehouse_no);
-CREATE INDEX IF NOT EXISTS "IX_Stock_DeletedAt" ON "Stock"(deleted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS "UX_Stock_SAP_PN" ON "Stock"(sap_pn) WHERE sap_pn IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_stock_partnumber ON stock(part_number);
+CREATE INDEX IF NOT EXISTS ix_stock_parentpn ON stock(parent_pn);
+CREATE INDEX IF NOT EXISTS ix_stock_warehouse ON stock(warehouse_no);
+CREATE INDEX IF NOT EXISTS ix_stock_deletedat ON stock(deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_sap_pn ON stock(sap_pn) WHERE sap_pn IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS "StockMovements" (
+CREATE TABLE IF NOT EXISTS stock_movements (
   id SERIAL PRIMARY KEY,
   movement_type VARCHAR(20) NOT NULL,
   warehouse_no VARCHAR(50) NOT NULL,
@@ -118,11 +119,11 @@ CREATE TABLE IF NOT EXISTS "StockMovements" (
   remark TEXT,
   created_by INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_Movement_Warehouse" FOREIGN KEY (warehouse_no) REFERENCES "Warehouses"(warehouse_no),
-  CONSTRAINT "FK_Movement_User" FOREIGN KEY (created_by) REFERENCES "Users"(user_id)
+  CONSTRAINT fk_movement_warehouse FOREIGN KEY (warehouse_no) REFERENCES warehouses(warehouse_no),
+  CONSTRAINT fk_movement_user FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
-CREATE INDEX IF NOT EXISTS "IX_Movement_PartNumber" ON "StockMovements"(part_number);
-CREATE INDEX IF NOT EXISTS "IX_Movement_Warehouse" ON "StockMovements"(warehouse_no);
+CREATE INDEX IF NOT EXISTS ix_stock_movements_partnumber ON stock_movements(part_number);
+CREATE INDEX IF NOT EXISTS ix_stock_movements_warehouse ON stock_movements(warehouse_no);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
@@ -150,13 +151,13 @@ CREATE TABLE IF NOT EXISTS stock_action_logs (
   user_id INTEGER,
   username VARCHAR(100),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_StockAction_Stock" FOREIGN KEY (stock_id) REFERENCES "Stock"(id) ON DELETE SET NULL,
-  CONSTRAINT "FK_StockAction_User" FOREIGN KEY (user_id) REFERENCES "Users"(user_id)
+  CONSTRAINT fk_stock_action_stock FOREIGN KEY (stock_id) REFERENCES stock(id) ON DELETE SET NULL,
+  CONSTRAINT fk_stock_action_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
-CREATE INDEX IF NOT EXISTS "IX_StockAction_StockId" ON stock_action_logs(stock_id);
-CREATE INDEX IF NOT EXISTS "IX_StockAction_UserId" ON stock_action_logs(user_id);
+CREATE INDEX IF NOT EXISTS ix_stock_action_stock_id ON stock_action_logs(stock_id);
+CREATE INDEX IF NOT EXISTS ix_stock_action_user_id ON stock_action_logs(user_id);
 
-CREATE TABLE IF NOT EXISTS "OrderWorkflows" (
+CREATE TABLE IF NOT EXISTS order_workflows (
   id SERIAL PRIMARY KEY,
   order_file VARCHAR(255),
   invoice_number VARCHAR(100),
@@ -182,7 +183,7 @@ CREATE TABLE IF NOT EXISTS "OrderWorkflows" (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS "OrderAdminAudits" (
+CREATE TABLE IF NOT EXISTS order_admin_audits (
   id SERIAL PRIMARY KEY,
   order_id INTEGER,
   outbound_number VARCHAR(100),
@@ -192,7 +193,7 @@ CREATE TABLE IF NOT EXISTS "OrderAdminAudits" (
   details TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS "IX_OrderAdminAudit_Order" ON "OrderAdminAudits"(order_id);
+CREATE INDEX IF NOT EXISTS ix_order_admin_audits_order ON order_admin_audits(order_id);
 
 CREATE TABLE IF NOT EXISTS ai_activity_log (
   id SERIAL PRIMARY KEY,
@@ -205,7 +206,7 @@ CREATE TABLE IF NOT EXISTS ai_activity_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS "Transporters" (
+CREATE TABLE IF NOT EXISTS transporters (
   id SERIAL PRIMARY KEY,
   company_name VARCHAR(255) NOT NULL,
   contact_name VARCHAR(255),
@@ -215,7 +216,7 @@ CREATE TABLE IF NOT EXISTS "Transporters" (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS "Drivers" (
+CREATE TABLE IF NOT EXISTS drivers (
   id SERIAL PRIMARY KEY,
   driver_name VARCHAR(255) NOT NULL,
   driver_number VARCHAR(100),
@@ -231,10 +232,10 @@ CREATE TABLE IF NOT EXISTS "Drivers" (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_Driver_User" FOREIGN KEY (user_id) REFERENCES "Users"(user_id)
+  CONSTRAINT fk_driver_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
-CREATE TABLE IF NOT EXISTS "Customers" (
+CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   city VARCHAR(100),
@@ -255,7 +256,7 @@ CREATE TABLE IF NOT EXISTS "Customers" (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS "OrderTransport" (
+CREATE TABLE IF NOT EXISTS order_transport (
   id SERIAL PRIMARY KEY,
   transporter_name VARCHAR(255) NOT NULL,
   driver_name VARCHAR(255),
@@ -272,27 +273,27 @@ CREATE TABLE IF NOT EXISTS "OrderTransport" (
   order_id INTEGER NOT NULL,
   transporter_id INTEGER,
   driver_id INTEGER,
-  CONSTRAINT "FK_Transport_Order" FOREIGN KEY (order_id) REFERENCES "OrderWorkflows"(id) ON DELETE CASCADE,
-  CONSTRAINT "FK_Transport_User" FOREIGN KEY (created_by) REFERENCES "Users"(user_id),
-  CONSTRAINT "FK_Transport_Transporter" FOREIGN KEY (transporter_id) REFERENCES "Transporters"(id),
-  CONSTRAINT "FK_Transport_Driver" FOREIGN KEY (driver_id) REFERENCES "Drivers"(id)
+  CONSTRAINT fk_order_transport_order FOREIGN KEY (order_id) REFERENCES order_workflows(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_transport_user FOREIGN KEY (created_by) REFERENCES users(user_id),
+  CONSTRAINT fk_order_transport_transporter FOREIGN KEY (transporter_id) REFERENCES transporters(id),
+  CONSTRAINT fk_order_transport_driver FOREIGN KEY (driver_id) REFERENCES drivers(id)
 );
 
-CREATE TABLE IF NOT EXISTS "OrderSerials" (
+CREATE TABLE IF NOT EXISTS order_serials (
   id SERIAL PRIMARY KEY,
   order_id INTEGER NOT NULL,
   outbound_number VARCHAR(100) NOT NULL,
   serial_number VARCHAR(200) NOT NULL,
   entered_by INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_Serial_Order" FOREIGN KEY (order_id) REFERENCES "OrderWorkflows"(id) ON DELETE CASCADE,
-  CONSTRAINT "FK_Serial_User" FOREIGN KEY (entered_by) REFERENCES "Users"(user_id)
+  CONSTRAINT fk_order_serials_order FOREIGN KEY (order_id) REFERENCES order_workflows(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_serials_user FOREIGN KEY (entered_by) REFERENCES users(user_id)
 );
-CREATE INDEX IF NOT EXISTS "IX_Serial_Outbound" ON "OrderSerials"(outbound_number);
-CREATE INDEX IF NOT EXISTS "IX_Serial_Number" ON "OrderSerials"(serial_number);
-CREATE UNIQUE INDEX IF NOT EXISTS "UX_Serial_Order_Serial" ON "OrderSerials"(order_id, serial_number);
+CREATE INDEX IF NOT EXISTS ix_order_serials_outbound ON order_serials(outbound_number);
+CREATE INDEX IF NOT EXISTS ix_order_serials_number ON order_serials(serial_number);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_order_serials_order_number ON order_serials(order_id, serial_number);
 
-CREATE TABLE IF NOT EXISTS "OrderItems" (
+CREATE TABLE IF NOT EXISTS order_items (
   id SERIAL PRIMARY KEY,
   order_id INTEGER NOT NULL,
   part_number VARCHAR(100) NOT NULL,
@@ -303,29 +304,18 @@ CREATE TABLE IF NOT EXISTS "OrderItems" (
   picked_rack VARCHAR(50),
   is_picked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_OrderItems_Order" FOREIGN KEY (order_id) REFERENCES "OrderWorkflows"(id) ON DELETE CASCADE
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES order_workflows(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS "IX_OrderItems_Order" ON "OrderItems"(order_id);
+CREATE INDEX IF NOT EXISTS ix_order_items_order ON order_items(order_id);
 
-CREATE TABLE IF NOT EXISTS "Notifications" (
-  id SERIAL PRIMARY KEY,
-  type VARCHAR(50) NOT NULL,
-  order_id INTEGER,
-  outbound_number VARCHAR(100),
-  message TEXT NOT NULL,
-  is_read BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT "FK_Notification_Order" FOREIGN KEY (order_id) REFERENCES "OrderWorkflows"(id) ON DELETE SET NULL
-);
-
-CREATE TABLE IF NOT EXISTS "OrderFiles" (
+CREATE TABLE IF NOT EXISTS order_files (
   id SERIAL PRIMARY KEY,
   file_name VARCHAR(255) NOT NULL,
   file_path VARCHAR(500) NOT NULL,
   outbound_number VARCHAR(100),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by INTEGER,
-  CONSTRAINT "FK_OrderFiles_User" FOREIGN KEY (created_by) REFERENCES "Users"(user_id)
+  CONSTRAINT fk_order_files_user FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS matching_dataset_meta (

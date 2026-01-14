@@ -7,9 +7,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
-@Table(name = "Drivers")
+@Table(name = "drivers")
 public class Driver {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,14 +28,32 @@ public class Driver {
   @Column(name = "truck_no")
   private String truckNo;
 
+  @Column(name = "nationality")
+  private String nationality;
+
+  @Column(name = "iqama_expiry_date")
+  private LocalDate iqamaExpiryDate;
+
+  @Column(name = "license_expiry_date")
+  private LocalDate licenseExpiryDate;
+
   @Column(name = "iqama_image")
   private String iqamaImage;
+
+  @Column(name = "license_image")
+  private String licenseImage;
 
   @Column(name = "istimara_image")
   private String istimaraImage;
 
   @Column(name = "insurance_image")
   private String insuranceImage;
+
+  @Column(name = "truck_front_image")
+  private String truckFrontImage;
+
+  @Column(name = "truck_back_image")
+  private String truckBackImage;
 
   @Column(name = "user_id")
   private Long userId;
@@ -85,12 +104,44 @@ public class Driver {
     this.truckNo = truckNo;
   }
 
+  public String getNationality() {
+    return nationality;
+  }
+
+  public void setNationality(String nationality) {
+    this.nationality = nationality;
+  }
+
+  public LocalDate getIqamaExpiryDate() {
+    return iqamaExpiryDate;
+  }
+
+  public void setIqamaExpiryDate(LocalDate iqamaExpiryDate) {
+    this.iqamaExpiryDate = iqamaExpiryDate;
+  }
+
+  public LocalDate getLicenseExpiryDate() {
+    return licenseExpiryDate;
+  }
+
+  public void setLicenseExpiryDate(LocalDate licenseExpiryDate) {
+    this.licenseExpiryDate = licenseExpiryDate;
+  }
+
   public String getIqamaImage() {
     return iqamaImage;
   }
 
   public void setIqamaImage(String iqamaImage) {
     this.iqamaImage = iqamaImage;
+  }
+
+  public String getLicenseImage() {
+    return licenseImage;
+  }
+
+  public void setLicenseImage(String licenseImage) {
+    this.licenseImage = licenseImage;
   }
 
   public String getIstimaraImage() {
@@ -107,6 +158,22 @@ public class Driver {
 
   public void setInsuranceImage(String insuranceImage) {
     this.insuranceImage = insuranceImage;
+  }
+
+  public String getTruckFrontImage() {
+    return truckFrontImage;
+  }
+
+  public void setTruckFrontImage(String truckFrontImage) {
+    this.truckFrontImage = truckFrontImage;
+  }
+
+  public String getTruckBackImage() {
+    return truckBackImage;
+  }
+
+  public void setTruckBackImage(String truckBackImage) {
+    this.truckBackImage = truckBackImage;
   }
 
   public Long getUserId() {

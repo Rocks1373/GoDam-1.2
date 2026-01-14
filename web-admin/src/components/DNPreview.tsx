@@ -13,6 +13,9 @@ type DNPreviewProps = {
   dnNumber?: string;
   outboundNumber?: string;
   dnDate?: string;
+  invoiceNumber?: string;
+  customerPo?: string;
+  gappPo?: string;
   
   // Customer Data
   customerName?: string;
@@ -67,6 +70,9 @@ const DNPreview = ({
   dnNumber,
   outboundNumber,
   dnDate,
+  invoiceNumber,
+  customerPo,
+  gappPo,
   customerName,
   address,
   phone1,
@@ -85,6 +91,8 @@ const DNPreview = ({
   totalWeight,
   totalVolume,
   verifierName,
+  requirements,
+  googleMapLink,
   onPrint,
   onDownload,
   onEmail,
@@ -120,7 +128,20 @@ const DNPreview = ({
   );
 
   const displayDate = useMemo(() => {
-    if (dnDate) return dnDate;
+    if (dnDate) {
+      try {
+        const date = new Date(dnDate);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+          });
+        }
+      } catch (e) {
+        // Fall through to default
+      }
+    }
     const now = new Date();
     return now.toLocaleDateString(undefined, {
       year: "numeric",
@@ -269,10 +290,19 @@ const DNPreview = ({
             <div>
                <h1 style={{ fontSize: "28px", fontWeight: "bold", margin: "0 0 5px 0", textTransform: "uppercase" }}>Delivery Note</h1>
                <div style={{ fontSize: "16px" }}>DN #: <strong>{dnNumber || "DRAFT"}</strong></div>
+               {invoiceNumber && (
+                 <div style={{ fontSize: "14px", marginTop: "4px" }}>Invoice #: <strong>{invoiceNumber}</strong></div>
+               )}
             </div>
             <div style={{ textAlign: "right" }}>
                <div style={{ fontSize: "14px", marginBottom: "2px" }}>Date: <strong>{displayDate}</strong></div>
                <div style={{ fontSize: "14px", marginBottom: "2px" }}>Outbound #: <strong>{outboundNumber || "N/A"}</strong></div>
+               {customerPo && (
+                 <div style={{ fontSize: "14px", marginBottom: "2px" }}>Customer PO: <strong>{customerPo}</strong></div>
+               )}
+               {gappPo && (
+                 <div style={{ fontSize: "14px", marginBottom: "2px" }}>GAPP PO: <strong>{gappPo}</strong></div>
+               )}
                <div style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>Page 1 of 1</div>
             </div>
           </div>
@@ -286,7 +316,19 @@ const DNPreview = ({
                 <strong style={{ fontSize: "14px" }}>{customerName || "Customer Name"}</strong><br />
                 {address || "Delivery Address"}<br />
                 {phone1 && <span>Tel: {phone1}<br /></span>}
-                {receiver1Name && <span>Attn: {receiver1Name}</span>}
+                {receiver1Name && <span>Attn: {receiver1Name}<br /></span>}
+                {googleMapLink && (
+                  <span style={{ marginTop: "4px", display: "block" }}>
+                    <a 
+                      href={googleMapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ color: "#0066cc", textDecoration: "underline", fontSize: "12px" }}
+                    >
+                      📍 View on Google Maps
+                    </a>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -354,6 +396,16 @@ const DNPreview = ({
               <span>{totalVolume?.toFixed(3) || "0.000"}</span>
             </div>
           </div>
+
+          {/* Requirements/Remarks Section */}
+          {requirements && requirements.trim() && (
+            <div style={{ border: "2px solid #333", padding: "15px", marginBottom: "30px" }}>
+              <div style={sectionHeaderStyle}>Special Instructions / Remarks:</div>
+              <div style={{ fontSize: "13px", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+                {requirements}
+              </div>
+            </div>
+          )}
 
           {/* Footer Section */}
           <div style={{ marginTop: "auto" }}>

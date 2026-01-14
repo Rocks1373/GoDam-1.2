@@ -11,7 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "OrderAdminAudits")
+@Table(name = "order_admin_audits")
 public class OrderAdminAudit {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../services/api";
+import { useAuth } from "../contexts/authContext";
 import {
   flexRender,
   getCoreRowModel,
@@ -47,6 +48,21 @@ type UploadRow = {
   drumQty?: number;
 };
 
+type UploadValidationDuplicate = {
+  partNumber: string;
+  warehouseNo: string;
+  existingQty: number;
+  uploadedQty: number;
+};
+
+type UploadValidationResult = {
+  validRows: number;
+  invalidRows: number;
+  duplicates: UploadValidationDuplicate[];
+  errorFileUrl: string;
+  token: string;
+};
+
 type StockItemDto = {
   id: number;
   warehouseNo: string;
@@ -69,6 +85,7 @@ type StockItemDto = {
 };
 
 const Stock = () => {
+  const { user } = useAuth();
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -82,7 +99,15 @@ const Stock = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [validationResult, setValidationResult] =
+    useState<UploadValidationResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = useState(false);
+  const invalidRowCount = validationResult?.invalidRows ?? 0;
+  const duplicateRows = validationResult?.duplicates ?? [];
   const [showEditor, setShowEditor] = useState(false);
   const [editMode, setEditMode] = useState<"new" | "edit">("new");
   const [editForm, setEditForm] = useState<UploadRow>({
@@ -101,6 +126,16 @@ const Stock = () => {
   const [rackSaving, setRackSaving] = useState(false);
   const [rackError, setRackError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const adjustPartInputRef = useRef<HTMLInputElement | null>(null);
+  const [showAdjustment, setShowAdjustment] = useState(false);
+  const [adjustPartNumber, setAdjustPartNumber] = useState("");
+  const [adjustAddQty, setAdjustAddQty] = useState("");
+  const [adjustReduceQty, setAdjustReduceQty] = useState("");
+  const [adjustPassword, setAdjustPassword] = useState("");
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [adjustLoading, setAdjustLoading] = useState(false);
+  const [adjustVerified, setAdjustVerified] = useState(false);
+  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
   const columns = useMemo<ColumnDef<StockRow>[]>(
     () => [
       { accessorKey: "warehouse", header: "Warehouse" },
@@ -182,6 +217,10 @@ const Stock = () => {
 
   const parseUpload = (file: File) => {
     setUploadError(null);
+    setUploadFile(file);
+    setValidationResult(null);
+    setValidationError(null);
+    setActionInProgress(false);
     const reader = new FileReader();
     reader.onload = (event) => {
       const data = new Uint8Array(event.target?.result as ArrayBuffer);
@@ -232,24 +271,199 @@ const Stock = () => {
     reader.readAsArrayBuffer(file);
   };
 
+  const resetUploadState = () => {
+    setUploadRows([]);
+    setUploadFile(null);
+    setValidationResult(null);
+    setValidationError(null);
+    setUploadError(null);
+    setActionInProgress(false);
+  };
+
   const submitUpload = async () => {
     if (uploadRows.length === 0) {
       setUploadError("No rows to upload.");
       return;
     }
+    if (!uploadFile) {
+      setUploadError("Select a file before uploading.");
+      return;
+    }
     setUploading(true);
     setUploadError(null);
+    setValidationError(null);
+    setUploadSuccess(null);
     try {
-      await api.post("/stock/bulk", uploadRows);
-      setShowUpload(false);
-      setUploadRows([]);
-      setWarehouseFilter("");
-      setReloadToken((value) => value + 1);
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      const response = await api.post<UploadValidationResult>(
+        "/stock/upload/validate",
+        formData
+      );
+      const result = response.data;
+      if (result.invalidRows === 0) {
+        await api.post("/stock/upload/commit", {
+          token: result.token,
+          action: "REPLACE",
+        });
+        const insertedCount = result.validRows + (result.duplicates?.length ?? 0);
+        setUploadSuccess(`Upload successful. Inserted ${insertedCount} rows.`);
+        setShowUpload(false);
+        resetUploadState();
+        setWarehouseFilter("");
+        setReloadToken((value) => value + 1);
+      } else {
+        setValidationResult(result);
+      }
     } catch {
-      setUploadError("Upload failed. Check backend logs.");
+      setValidationError("Upload validation failed. Check backend logs.");
     } finally {
       setUploading(false);
     }
+  };
+
+  const commitValidation = async (
+    action: "ADD" | "REPLACE" | "REJECT" | "CANCEL",
+    onSuccess?: () => void
+  ) => {
+    if (!validationResult) {
+      return;
+    }
+    setActionInProgress(true);
+    setUploadError(null);
+    setValidationError(null);
+    try {
+      await api.post("/stock/upload/commit", {
+        token: validationResult.token,
+        action,
+      });
+      onSuccess?.();
+      setShowUpload(false);
+      resetUploadState();
+      setWarehouseFilter("");
+      setReloadToken((value) => value + 1);
+    } catch {
+      setUploadError("Commit failed. Check backend logs.");
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const headers = [
+      "warehouse_no",
+      "storage_location",
+      "part_number",
+      "sap_pn",
+      "qty",
+      "uom",
+      "combine_rack",
+      "rack",
+      "bin",
+      "description",
+      "vendor_name",
+      "category",
+      "sub_category",
+      "pn_indicator",
+      "parent_pn",
+      "base_qty",
+      "qty_status",
+      "serial_required",
+      "is_schneider",
+      "drum_no",
+      "drum_qty",
+    ];
+    const workbook = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet([headers]);
+    XLSX.utils.book_append_sheet(workbook, sheet, "stock_upload");
+
+    const requirements = [
+      ["Mandatory columns (do not rename):"],
+      ["warehouse_no"],
+      ["storage_location"],
+      ["part_number"],
+      ["sap_pn"],
+      ["qty"],
+      ["uom"],
+      ["combine_rack"],
+      [""],
+      ["Notes:"],
+      ["- Keep headers exactly as shown (lowercase with underscores)."],
+      ["- received_at is auto-generated on upload."],
+      ["- serial_required/is_schneider accept true/false or 1/0."],
+    ];
+    const infoSheet = XLSX.utils.aoa_to_sheet(requirements);
+    XLSX.utils.book_append_sheet(workbook, infoSheet, "requirements");
+
+    XLSX.writeFile(workbook, "GoDAM_Stock_Upload_Template.xlsx");
+  };
+
+  const resetAdjustment = () => {
+    setAdjustPartNumber("");
+    setAdjustAddQty("");
+    setAdjustReduceQty("");
+    setAdjustPassword("");
+    setAdjustError(null);
+    setAdjustVerified(false);
+  };
+
+  const resetAdjustmentFields = () => {
+    setAdjustPartNumber("");
+    setAdjustAddQty("");
+    setAdjustReduceQty("");
+    setAdjustError(null);
+  };
+
+  const submitAdjustment = async () => {
+    if (!adjustVerified) {
+      setAdjustError("Enter admin password to continue.");
+      return;
+    }
+    if (!adjustPartNumber.trim()) {
+      setAdjustError("Select a part number.");
+      return;
+    }
+    const addQty = Number(adjustAddQty);
+    const reduceQty = Number(adjustReduceQty);
+    const hasAdd = Number.isFinite(addQty) && addQty > 0;
+    const hasReduce = Number.isFinite(reduceQty) && reduceQty > 0;
+    if (hasAdd === hasReduce) {
+      setAdjustError("Fill either Add Qty or Reduce Qty.");
+      return;
+    }
+    if (!adjustPassword.trim()) {
+      setAdjustError("Admin password is required.");
+      return;
+    }
+    setAdjustLoading(true);
+    setAdjustError(null);
+    try {
+      await api.post("/stock/adjustment", {
+        partNumber: adjustPartNumber.trim(),
+        addQty: hasAdd ? addQty : undefined,
+        reduceQty: hasReduce ? reduceQty : undefined,
+        password: adjustPassword,
+        performedBy: user?.username ?? "",
+      });
+      resetAdjustmentFields();
+      setReloadToken((value) => value + 1);
+      requestAnimationFrame(() => {
+        adjustPartInputRef.current?.focus();
+      });
+    } catch (error) {
+      setAdjustError("Adjustment failed. Check backend logs.");
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
+
+  const submitAdjustmentPassword = () => {
+    if (!adjustPassword.trim()) {
+      setAdjustError("Admin password is required.");
+      return;
+    }
+    setAdjustVerified(true);
+    setAdjustError(null);
   };
 
   const buildUploadRow = (item: StockItemDto, overrides: Partial<UploadRow> = {}): UploadRow => ({
@@ -489,9 +703,22 @@ const Stock = () => {
           <button className="btn ghost" onClick={() => setShowUpload(true)}>
             Upload CSV/XLSX
           </button>
+          {isAdmin ? (
+            <button
+              className="btn ghost"
+              onClick={() => {
+                setShowAdjustment(true);
+                setAdjustVerified(false);
+                setAdjustError(null);
+              }}
+            >
+              Adjustment
+            </button>
+          ) : null}
         </div>
       </div>
       {error ? <div className="banner">{error}</div> : null}
+      {uploadSuccess ? <div className="banner">{uploadSuccess}</div> : null}
       {rackError ? <div className="banner">{rackError}</div> : null}
 
       <div className="stock-toolbar">
@@ -590,11 +817,25 @@ const Stock = () => {
           <div className="modal">
             <div className="modal-header">
               <h3>Upload Stock (Excel)</h3>
-              <button className="btn tiny" onClick={() => setShowUpload(false)}>
-                Close
-              </button>
+              <div className="modal-actions">
+                <button className="btn ghost tiny" onClick={downloadTemplate}>
+                  Download Template
+                </button>
+                <button
+                  className="btn tiny"
+                  onClick={() => {
+                    setShowUpload(false);
+                    resetUploadState();
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
             <div className="modal-body">
+              <div className="banner">
+                Upload will replace all existing stock rows after validation.
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -605,43 +846,223 @@ const Stock = () => {
                 }}
               />
               {uploadError ? <div className="banner">{uploadError}</div> : null}
+              {validationError ? <div className="banner">{validationError}</div> : null}
               <div className="upload-preview">
-                <div className="hint">
-                  Parsed rows: {uploadRows.length}
-                </div>
-                <div className="preview-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Warehouse</th>
-                        <th>Location</th>
-                        <th>Part</th>
-                        <th>Qty</th>
-                        <th>UOM</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {uploadRows.slice(0, 8).map((row, index) => (
-                        <tr key={`${row.partNumber}-${index}`}>
-                          <td>{row.warehouseNo}</td>
-                          <td>{row.storageLocation}</td>
-                          <td>{row.partNumber}</td>
-                          <td>{row.qty}</td>
-                          <td>{row.uom}</td>
-                        </tr>
+                {!validationResult ? (
+                  <>
+                    <div className="hint">
+                      Parsed rows preview: {Math.min(uploadRows.length, 8)} of {uploadRows.length}
+                    </div>
+                    <div className="preview-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Warehouse</th>
+                            <th>Location</th>
+                            <th>Part</th>
+                            <th>Qty</th>
+                            <th>UOM</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {uploadRows.slice(0, 8).map((row, index) => (
+                            <tr key={`${row.partNumber}-${index}`}>
+                              <td>{row.warehouseNo}</td>
+                              <td>{row.storageLocation}</td>
+                              <td>{row.partNumber}</td>
+                              <td>{row.qty}</td>
+                              <td>{row.uom}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : invalidRowCount > 0 ? (
+                  <div className="validation-summary error">
+                    <p>There are {invalidRowCount} rows with errors.</p>
+                    <p>Please download GoDAM_ErrorRows.xlsx to review each error.</p>
+                  </div>
+                ) : duplicateRows.length > 0 ? (
+                  <div className="validation-summary duplicates">
+                    <p>{duplicateRows.length} duplicate items found.</p>
+                    <ul>
+                      {duplicateRows.map((dup, index) => (
+                        <li key={`${dup.partNumber}-${dup.warehouseNo}-${index}`}>
+                          {dup.partNumber} @ {dup.warehouseNo} — existing {dup.existingQty}, uploaded{" "}
+                          {dup.uploadedQty}
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="validation-summary success">
+                    <p>All items are valid.</p>
+                    <p>{validationResult?.validRows ?? 0} rows ready to be uploaded.</p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn ghost" onClick={() => setShowUpload(false)}>
+              {!validationResult ? (
+                <>
+                  <button
+                    className="btn ghost"
+                    onClick={() => {
+                      setShowUpload(false);
+                      resetUploadState();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button className="btn primary" onClick={submitUpload} disabled={uploading}>
+                    {uploading ? "Validating..." : "Upload"}
+                  </button>
+                </>
+              ) : invalidRowCount > 0 ? (
+                <>
+                  {validationResult.errorFileUrl ? (
+                    <a
+                      className="btn primary"
+                      href={validationResult.errorFileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download GoDAM_ErrorRows.xlsx
+                    </a>
+                  ) : null}
+                  <button
+                    className="btn ghost danger"
+                    onClick={() => commitValidation("CANCEL")}
+                    disabled={actionInProgress}
+                  >
+                    {actionInProgress ? "Canceling..." : "Cancel upload"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="btn primary"
+                    onClick={() => commitValidation("REPLACE")}
+                    disabled={actionInProgress}
+                  >
+                    {actionInProgress ? "Replacing..." : "Replace all stock"}
+                  </button>
+                  <button
+                    className="btn ghost danger"
+                    onClick={() => commitValidation("CANCEL")}
+                    disabled={actionInProgress}
+                  >
+                    {actionInProgress ? "Canceling..." : "Cancel"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showAdjustment ? (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Stock Adjustment</h3>
+              <button
+                className="btn tiny"
+                onClick={() => {
+                  setShowAdjustment(false);
+                  resetAdjustment();
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              {adjustError ? <div className="banner">{adjustError}</div> : null}
+              {!adjustVerified ? (
+                <div className="form-grid">
+                  <label>
+                    Admin password
+                    <input
+                      className="search-input"
+                      type="password"
+                      value={adjustPassword}
+                      onChange={(event) => setAdjustPassword(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          submitAdjustmentPassword();
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="form-grid">
+                  <label>
+                    Part Number
+                    <input
+                      className="search-input"
+                      list="stock-adjustment-parts"
+                      value={adjustPartNumber}
+                      onChange={(event) => setAdjustPartNumber(event.target.value)}
+                      ref={adjustPartInputRef}
+                    />
+                    <datalist id="stock-adjustment-parts">
+                      {[...new Set(rawItems.map((item) => item.partNumber))].map((pn) => (
+                        <option key={pn} value={pn} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label>
+                    Add Qty
+                    <input
+                      className="search-input"
+                      type="number"
+                      value={adjustAddQty}
+                      onChange={(event) => {
+                        setAdjustAddQty(event.target.value);
+                        if (event.target.value) {
+                          setAdjustReduceQty("");
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Reduce Qty
+                    <input
+                      className="search-input"
+                      type="number"
+                      value={adjustReduceQty}
+                      onChange={(event) => {
+                        setAdjustReduceQty(event.target.value);
+                        if (event.target.value) {
+                          setAdjustAddQty("");
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  setShowAdjustment(false);
+                  resetAdjustment();
+                }}
+              >
                 Cancel
               </button>
-              <button className="btn primary" onClick={submitUpload} disabled={uploading}>
-                {uploading ? "Uploading..." : "Upload"}
-              </button>
+              {!adjustVerified ? (
+                <button className="btn primary" onClick={submitAdjustmentPassword}>
+                  Continue
+                </button>
+              ) : (
+                <button className="btn primary" onClick={submitAdjustment} disabled={adjustLoading}>
+                  {adjustLoading ? "Saving..." : "Save Adjustment"}
+                </button>
+              )}
             </div>
           </div>
         </div>

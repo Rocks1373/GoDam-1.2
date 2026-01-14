@@ -180,6 +180,25 @@
   padding: 22px;
 }
 
+.customer-modal.settings-modal {
+  width: min(640px, calc(100% - 32px));
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.customer-modal.settings-modal .customer-modal-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.customer-modal.settings-modal .column-settings {
+  max-height: 45vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .customer-modal-header {
   display: flex;
   align-items: center;

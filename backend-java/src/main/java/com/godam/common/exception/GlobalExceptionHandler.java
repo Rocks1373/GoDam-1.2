@@ -1,8 +1,5 @@
 package com.godam.common.exception;
 
-import jakarta.servlet.http.HttpServletRequest;
-import java.time.Instant;
-import java.util.stream.Collectors;
 import com.godam.security.ErrorSeverity;
 import com.godam.security.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;

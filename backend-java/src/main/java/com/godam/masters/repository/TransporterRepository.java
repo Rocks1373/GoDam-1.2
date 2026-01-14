@@ -11,6 +11,9 @@ public interface TransporterRepository extends JpaRepository<Transporter, Long> 
   @Query("select t from Transporter t where t.isActive = true and (lower(t.companyName) like lower(concat('%', :q, '%')) or lower(t.contactName) like lower(concat('%', :q, '%')))")
   List<Transporter> searchActive(@Param("q") String query);
 
+  @Query("select t from Transporter t where (lower(t.companyName) like lower(concat('%', :q, '%')) or lower(t.contactName) like lower(concat('%', :q, '%')))")
+  List<Transporter> searchAll(@Param("q") String query);
+
   List<Transporter> findByIsActiveTrue();
 
   Optional<Transporter> findFirstByCompanyNameIgnoreCaseAndIsActiveTrue(String companyName);

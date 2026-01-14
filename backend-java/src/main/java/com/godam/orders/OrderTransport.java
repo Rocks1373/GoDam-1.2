@@ -10,7 +10,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "OrderTransport")
+@Table(name = "order_transport")
 public class OrderTransport {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

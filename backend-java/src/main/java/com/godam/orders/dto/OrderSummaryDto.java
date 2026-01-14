@@ -6,12 +6,14 @@ public class OrderSummaryDto {
   private String outboundNumber;
   private String gappPo;
   private String customerPo;
+  private String customerId;
   private String customerName;
   private boolean dnCreated;
   private String pickingStatus;
   private String checkingStatus;
   private int itemCount;
   private double totalQty;
+  private boolean insufficientStock;
 
   public Long getOrderId() {
     return orderId;
@@ -51,6 +53,14 @@ public class OrderSummaryDto {
 
   public void setCustomerPo(String customerPo) {
     this.customerPo = customerPo;
+  }
+
+  public String getCustomerId() {
+    return customerId;
+  }
+
+  public void setCustomerId(String customerId) {
+    this.customerId = customerId;
   }
 
   public String getCustomerName() {
@@ -99,5 +109,13 @@ public class OrderSummaryDto {
 
   public void setTotalQty(double totalQty) {
     this.totalQty = totalQty;
+  }
+
+  public boolean isInsufficientStock() {
+    return insufficientStock;
+  }
+
+  public void setInsufficientStock(boolean insufficientStock) {
+    this.insufficientStock = insufficientStock;
   }
 }

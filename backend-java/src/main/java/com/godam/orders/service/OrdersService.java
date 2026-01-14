@@ -7,6 +7,8 @@ import com.godam.common.exception.ResourceNotFoundException;
 import com.godam.movements.MovementType;
 import com.godam.movements.repository.StockMovementRepository;
 import com.godam.movements.service.StockMovementService;
+import com.godam.masters.Customer;
+import com.godam.masters.repository.CustomerRepository;
 import com.godam.orders.OrderAdminAction;
 import com.godam.orders.OrderAdminAudit;
 import com.godam.orders.OrderItem;
@@ -14,6 +16,7 @@ import com.godam.orders.OrderWorkflow;
 import com.godam.orders.dto.OrderDeleteRequest;
 import com.godam.orders.dto.OrderEditRequest;
 import com.godam.orders.dto.OrderItemDto;
+import com.godam.orders.dto.OrderItemUpdateRequest;
 import com.godam.orders.dto.OrderSendForPickupRequest;
 import com.godam.orders.dto.OrderSummaryDto;
 import com.godam.orders.dto.OrderUploadItemDto;
@@ -23,13 +26,18 @@ import com.godam.orders.repository.OrderAdminAuditRepository;
 import com.godam.orders.repository.OrderItemRepository;
 import com.godam.orders.repository.OrderWorkflowRepository;
 import com.godam.security.UploadValidationPipeline;
+import com.godam.stock.Stock;
 import com.godam.stock.dto.StockPickContext;
+import com.godam.stock.repository.StockRepository;
 import com.godam.stock.service.StockService;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +53,8 @@ public class OrdersService {
   private final StockService stockService;
   private final StockMovementService stockMovementService;
   private final StockMovementRepository stockMovementRepository;
+  private final StockRepository stockRepository;
+  private final CustomerRepository customerRepository;
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final UploadValidationPipeline uploadValidationPipeline;
@@ -56,6 +66,8 @@ public class OrdersService {
       StockService stockService,
       StockMovementService stockMovementService,
       StockMovementRepository stockMovementRepository,
+      StockRepository stockRepository,
+      CustomerRepository customerRepository,
       UserRepository userRepository,
       PasswordEncoder passwordEncoder,
       UploadValidationPipeline uploadValidationPipeline) {
@@ -65,6 +77,8 @@ public class OrdersService {
     this.stockService = stockService;
     this.stockMovementService = stockMovementService;
     this.stockMovementRepository = stockMovementRepository;
+    this.stockRepository = stockRepository;
+    this.customerRepository = customerRepository;
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
     this.uploadValidationPipeline = uploadValidationPipeline;
@@ -107,7 +121,12 @@ public class OrdersService {
       throw new com.godam.common.exception.StockValidationException("Picked qty exceeds requested qty");
     }
 
-    StockPickContext context = stockService.preparePickContext(partNumber, pickQty, pickedRack);
+    boolean allowNegative = order != null
+        && order.getPickingStatus() != null
+        && "PICK_REQUESTED_OVERRIDE".equalsIgnoreCase(order.getPickingStatus());
+    StockPickContext context = allowNegative
+        ? stockService.preparePickContextAllowNegative(partNumber, pickQty, pickedRack)
+        : stockService.preparePickContext(partNumber, pickQty, pickedRack);
     item.setPickedRack(pickedRack);
     item.setPickedBy(pickedBy == null || pickedBy.isBlank() ? "Picker" : pickedBy);
     item.setIsPicked(alreadyPicked + pickQty >= requestedQty);
@@ -131,7 +150,8 @@ public class OrdersService {
         requestedQty,
         context.getReference(),
         context.getRemark());
-    return toItemDto(saved);
+    PartAvailability updatedAvailability = buildPartAvailability(List.of(item)).get(item.getPartNumber());
+    return toItemDto(saved, updatedAvailability);
   }
 
   @Transactional
@@ -183,14 +203,7 @@ public class OrdersService {
 
   @Transactional
   public void overrideStatus(Long orderId, String ownerPassword) {
-    if (ownerPassword == null || ownerPassword.isBlank()) {
-      throw new BusinessRuleException("Owner password is required for override");
-    }
-    User owner = userRepository.findByUsername(OWNER_USERNAME)
-        .orElseThrow(() -> new BusinessRuleException("Owner account not found"));
-    if (!passwordEncoder.matches(ownerPassword, owner.getPassword())) {
-      throw new BusinessRuleException("Owner password is invalid");
-    }
+    User owner = requireOwnerPassword(ownerPassword);
 
     OrderWorkflow order = orderWorkflowRepository.findById(orderId)
         .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found"));
@@ -284,6 +297,30 @@ public class OrdersService {
       grouped.computeIfAbsent(row.getOutboundNumber(), key -> new ArrayList<>()).add(row);
     }
 
+    Map<String, Integer> requestedByPart = new HashMap<>();
+    for (OrderUploadItemDto row : rows) {
+      if (row.getPartNumber() == null || row.getPartNumber().isBlank()) {
+        continue;
+      }
+      int qty = row.getQty() == null ? 0 : row.getQty();
+      if (qty <= 0) {
+        continue;
+      }
+      requestedByPart.merge(row.getPartNumber(), qty, Integer::sum);
+    }
+    if (!requestedByPart.isEmpty()) {
+      Map<String, PartAvailability> availability = buildPartAvailability(requestedByPart.keySet());
+      for (Map.Entry<String, Integer> entry : requestedByPart.entrySet()) {
+        PartAvailability partAvailability = availability.get(entry.getKey());
+        int availableQty = partAvailability == null ? 0 : partAvailability.availableQty;
+        if (entry.getValue() > availableQty) {
+          throw new BusinessRuleException(
+              "Insufficient stock for part " + entry.getKey()
+                  + " (available " + availableQty + ", requested " + entry.getValue() + ")");
+        }
+      }
+    }
+
     int inserted = 0;
     int updated = 0;
 
@@ -302,7 +339,22 @@ public class OrdersService {
       OrderUploadItemDto first = items.get(0);
       order.setInvoiceNumber(first.getInvoiceNumber());
       order.setCustomerPo(first.getCustomerPo());
-      order.setCustomerName(first.getCustomerName());
+      
+      // Validate customer exists if customerId is provided
+      String customerId = first.getCustomerId();
+      if (customerId != null && !customerId.isBlank()) {
+        Customer customer = customerRepository
+            .findBySapCustomerIdIgnoreCase(customerId.trim())
+            .orElseThrow(() -> new BusinessRuleException(
+                "Customer not found with SAP Customer ID: " + customerId
+                    + ". Please add the customer to the Customers table before uploading orders."));
+        order.setCustomerId(customerId.trim());
+        order.setCustomerName(customer.getName());
+      } else {
+        order.setCustomerId(customerId);
+        order.setCustomerName(null);
+      }
+      
       order.setGappPo(first.getSalesOrder());
 
       OrderWorkflow saved = orderWorkflowRepository.save(order);
@@ -391,11 +443,15 @@ public class OrdersService {
     if (items == null || items.isEmpty()) {
       throw new BusinessRuleException("Order has no items to send for pickup.");
     }
+    if (hasInsufficientStock(items)) {
+      throw new BusinessRuleException("Insufficient stock to send for pickup.");
+    }
+    requireOwnerPassword(request.getOwnerPassword());
     validateAdminColumn("admin_reason", request.getReason());
     validateAdminColumn("admin_note", request.getNote());
     validateAdminColumn("performed_by", request.getPerformedBy());
 
-    order.setPickingStatus("PICK_REQUESTED");
+    order.setPickingStatus("PICK_REQUESTED_OVERRIDE");
     orderWorkflowRepository.save(order);
 
     for (OrderItem item : items) {
@@ -426,12 +482,52 @@ public class OrdersService {
     saveAudit(order, OrderAdminAction.SEND_PICKUP, request.getReason(), request.getPerformedBy(), details);
   }
 
+  @Transactional
+  public OrderItemDto updateOrderItemQty(Long orderId, OrderItemUpdateRequest request) {
+    requireReason(request.getReason());
+    validateAdminColumn("admin_reason", request.getReason());
+    validateAdminColumn("performed_by", request.getPerformedBy());
+    if (request.getPartNumber() == null || request.getPartNumber().isBlank()) {
+      throw new BusinessRuleException("Part number is required.");
+    }
+    if (request.getQty() == null || request.getQty() <= 0) {
+      throw new BusinessRuleException("Qty must be greater than zero.");
+    }
+    OrderItem item = orderItemRepository.findByOrder_IdAndPartNumber(orderId, request.getPartNumber())
+        .orElseThrow(() -> new ResourceNotFoundException("Order item not found"));
+    Integer beforeQty = item.getQty();
+    Map<String, PartAvailability> availability = buildPartAvailability(Set.of(request.getPartNumber()));
+    PartAvailability partAvailability = availability.get(request.getPartNumber());
+    int availableQty = partAvailability == null ? 0 : partAvailability.availableQty;
+    int currentQty = beforeQty == null ? 0 : beforeQty;
+    int allowedQty = availableQty + currentQty;
+    if (request.getQty() > allowedQty) {
+      throw new BusinessRuleException(
+          "Insufficient stock for part " + request.getPartNumber()
+              + " (available " + availableQty + ", requested " + request.getQty() + ")");
+    }
+    item.setQty(request.getQty());
+    OrderItem saved = orderItemRepository.save(item);
+
+    OrderWorkflow order = item.getOrder();
+    String details = String.format(
+        "Item %s qty: \"%s\" \u2192 \"%s\"",
+        request.getPartNumber(),
+        beforeQty == null ? "" : beforeQty.toString(),
+        request.getQty());
+    if (order != null) {
+      saveAudit(order, OrderAdminAction.EDIT, request.getReason(), request.getPerformedBy(), details);
+    }
+    PartAvailability updatedAvailability = buildPartAvailability(List.of(item)).get(item.getPartNumber());
+    return toItemDto(saved, updatedAvailability);
+  }
+
   private void validateOrderUploadRow(OrderUploadItemDto row, int rowNumber) {
     validateColumn("sales_order", row.getSalesOrder(), rowNumber);
     validateColumn("outbound_number", row.getOutboundNumber(), rowNumber);
     validateColumn("customer_po", row.getCustomerPo(), rowNumber);
+    validateColumn("customer_id", row.getCustomerId(), rowNumber);
     validateColumn("part_number", row.getPartNumber(), rowNumber);
-    validateColumn("customer_name", row.getCustomerName(), rowNumber);
     validateColumn("invoice_number", row.getInvoiceNumber(), rowNumber);
   }
 
@@ -450,6 +546,18 @@ public class OrdersService {
     if (reason == null || reason.isBlank()) {
       throw new BusinessRuleException("Reason is required for this action.");
     }
+  }
+
+  private User requireOwnerPassword(String ownerPassword) {
+    if (ownerPassword == null || ownerPassword.isBlank()) {
+      throw new BusinessRuleException("Owner password is required.");
+    }
+    User owner = userRepository.findByUsername(OWNER_USERNAME)
+        .orElseThrow(() -> new BusinessRuleException("Owner account not found"));
+    if (!passwordEncoder.matches(ownerPassword, owner.getPassword())) {
+      throw new BusinessRuleException("Owner password is invalid");
+    }
+    return owner;
   }
 
   private String formatChange(String label, String before, String after) {
@@ -475,6 +583,27 @@ public class OrdersService {
     orderAuditRepository.save(audit);
   }
 
+  private String resolveCustomerName(OrderWorkflow order) {
+    if (order == null) {
+      return null;
+    }
+    String currentName = order.getCustomerName();
+    if (currentName != null && !currentName.isBlank()) {
+      return currentName;
+    }
+    return resolveCustomerName(order.getCustomerId());
+  }
+
+  private String resolveCustomerName(String customerId) {
+    if (customerId == null || customerId.isBlank()) {
+      return null;
+    }
+    return customerRepository
+        .findBySapCustomerIdIgnoreCase(customerId.trim())
+        .map(Customer::getName)
+        .orElse(null);
+  }
+
   private OrderSummaryDto toSummary(OrderWorkflow order) {
     OrderSummaryDto summary = new OrderSummaryDto();
     summary.setOrderId(order.getId());
@@ -482,7 +611,8 @@ public class OrdersService {
     summary.setOutboundNumber(order.getOutboundNumber());
     summary.setGappPo(order.getGappPo());
     summary.setCustomerPo(order.getCustomerPo());
-    summary.setCustomerName(order.getCustomerName());
+    summary.setCustomerId(order.getCustomerId());
+    summary.setCustomerName(resolveCustomerName(order));
     summary.setDnCreated(order.isDnCreated());
     summary.setPickingStatus(order.getPickingStatus());
     summary.setCheckingStatus(order.getCheckingStatus());
@@ -499,7 +629,26 @@ public class OrdersService {
     }
     summary.setItemCount(itemCount);
     summary.setTotalQty(totalQty);
+    summary.setInsufficientStock(hasInsufficientStock(items));
     return summary;
+  }
+
+  private boolean hasInsufficientStock(List<OrderItem> items) {
+    if (items == null || items.isEmpty()) {
+      return false;
+    }
+    Map<String, PartAvailability> availability = buildPartAvailability(items);
+    for (OrderItem item : items) {
+      Integer required = item.getQty();
+      if (required == null || required <= 0) {
+        continue;
+      }
+      PartAvailability partAvailability = availability.get(item.getPartNumber());
+      if (partAvailability == null || partAvailability.availableQty < required) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private List<OrderItemDto> toItemDtos(List<OrderItem> items) {
@@ -507,20 +656,99 @@ public class OrdersService {
     if (items == null) {
       return dtos;
     }
+    Map<String, PartAvailability> availability = buildPartAvailability(items);
     for (OrderItem item : items) {
-      dtos.add(toItemDto(item));
+      dtos.add(toItemDto(item, availability.get(item.getPartNumber())));
     }
     return dtos;
   }
 
-  private OrderItemDto toItemDto(OrderItem item) {
+  private OrderItemDto toItemDto(OrderItem item, PartAvailability availability) {
     OrderItemDto dto = new OrderItemDto();
     dto.setPartNumber(item.getPartNumber());
-    dto.setDescription(item.getDescription());
+    String description = item.getDescription();
+    if ((description == null || description.isBlank()) && availability != null) {
+      description = availability.description;
+    }
+    dto.setDescription(description);
     dto.setQty(item.getQty() == null ? 0.0 : item.getQty());
+    dto.setAvailableQty(availability == null ? 0.0 : availability.availableQty);
     dto.setPickedBy(item.getPickedBy());
     dto.setPickedRack(item.getPickedRack());
     dto.setPicked(item.getIsPicked() != null && item.getIsPicked());
     return dto;
+  }
+
+  private Map<String, PartAvailability> buildPartAvailability(List<OrderItem> items) {
+    Map<String, PartAvailability> result = new HashMap<>();
+    if (items == null || items.isEmpty()) {
+      return result;
+    }
+    Set<String> partNumbers = new HashSet<>();
+    for (OrderItem item : items) {
+      if (item.getPartNumber() != null && !item.getPartNumber().isBlank()) {
+        partNumbers.add(item.getPartNumber());
+      }
+    }
+    return buildPartAvailability(partNumbers);
+  }
+
+  private Map<String, PartAvailability> buildPartAvailability(Set<String> partNumbers) {
+    Map<String, PartAvailability> result = new HashMap<>();
+    if (partNumbers == null || partNumbers.isEmpty()) {
+      return result;
+    }
+    List<Stock> stocks = stockRepository.findByPartNumberIn(partNumbers);
+    Map<String, List<Stock>> rowsByPart = new HashMap<>();
+    for (Stock row : stocks) {
+      if (row.getPartNumber() == null) {
+        continue;
+      }
+      rowsByPart.computeIfAbsent(row.getPartNumber(), key -> new ArrayList<>()).add(row);
+    }
+    for (String partNumber : partNumbers) {
+      List<Stock> rows = rowsByPart.get(partNumber);
+      int totalQty = 0;
+      String description = null;
+      if (rows != null) {
+        for (Stock row : rows) {
+          totalQty += row.getQty();
+          if ((description == null || description.isBlank()) && row.getDescription() != null) {
+            description = row.getDescription();
+          }
+        }
+      }
+      int reserved = Math.max(
+          0,
+          stockMovementRepository.sumQtyByPartNumberAndTypes(
+              partNumber,
+              List.of(MovementType.O102_PICK_REQUESTED)));
+      int picked = Math.max(
+          0,
+          stockMovementRepository.sumQtyByPartNumberAndTypes(
+              partNumber,
+              List.of(MovementType.O103_PICKED)));
+      int checked = Math.max(
+          0,
+          stockMovementRepository.sumQtyByPartNumberAndTypes(
+              partNumber,
+              List.of(MovementType.O104_CHECKED)));
+      int available = totalQty - reserved - picked - checked;
+      if (available < 0) {
+        available = 0;
+      }
+      result.put(partNumber, new PartAvailability(available, description));
+    }
+    return result;
+  }
+
+  private static final class PartAvailability {
+    private final int availableQty;
+    private final String description;
+
+    private PartAvailability(int availableQty, String description) {
+      this.availableQty = availableQty;
+      this.description = description;
+    }
   }
 }

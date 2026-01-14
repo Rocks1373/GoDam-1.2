@@ -4,14 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { api, apiBase } from "../services/api";
 import { AxiosError } from "axios";
 import * as XLSX from "xlsx";
+import { useAuth } from "../contexts/authContext";
+import { io } from "socket.io-client";
 
 type UploadRow = {
   salesOrder?: string;
   outboundNumber: string;
   customerPo?: string;
+  customerId?: string;
   partNumber: string;
   qty: number;
-  customerName?: string;
   invoiceNumber?: string;
 };
 
@@ -21,18 +23,22 @@ type OrderSummaryDto = {
   outboundNumber: string;
   gappPo: string | null;
   customerPo: string | null;
+  customerId?: string | null;
   customerName: string | null;
   dnCreated: boolean;
   itemCount: number;
   totalQty: number;
   pickingStatus?: string | null;
   checkingStatus?: string | null;
+  insufficientStock?: boolean;
 };
 
 type OrderItemDto = {
   partNumber: string;
   description: string | null;
   qty: number;
+  availableQty?: number | null;
+  pickedQty?: number | null;
   pickedBy?: string | null;
   pickedRack?: string | null;
   picked?: boolean;
@@ -41,6 +47,12 @@ type OrderItemDto = {
 type OrderViewDto = {
   summary: OrderSummaryDto;
   items: OrderItemDto[];
+};
+
+type MovementDto = {
+  movementType?: string | null;
+  partNumber?: string | null;
+  qtyChange?: number | null;
 };
 
 type StockItemDto = {
@@ -70,6 +82,7 @@ const modalCardStyle: CSSProperties = {
 
 const Orders = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<OrderSummaryDto[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -93,7 +106,13 @@ const Orders = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showPickEditModal, setShowPickEditModal] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [selectedPickItem, setSelectedPickItem] = useState<OrderItemDto | null>(null);
+  const [pickEditQty, setPickEditQty] = useState("");
+  const [pickEditError, setPickEditError] = useState<string | null>(null);
+  const [pickEditLoading, setPickEditLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     invoiceNumber: "",
     customerName: "",
@@ -106,10 +125,23 @@ const Orders = () => {
   const [sendReason, setSendReason] = useState("");
   const [sendNote, setSendNote] = useState("");
   const [sendPerformedBy, setSendPerformedBy] = useState("");
+  const [sendOwnerPassword, setSendOwnerPassword] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editItemPartNumber, setEditItemPartNumber] = useState("");
+  const [editItemQty, setEditItemQty] = useState("");
+  const [editItemError, setEditItemError] = useState<string | null>(null);
+  const [editItemLoading, setEditItemLoading] = useState(false);
   const refreshTimerRef = useRef<number | null>(null);
+  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const selectedOrderItems = selectedOrderId
+    ? orderDetails[selectedOrderId]?.items ?? []
+    : [];
+  const [orderLineStages, setOrderLineStages] = useState<
+    Record<number, Record<string, number>>
+  >({});
+  const realtimeBase = import.meta.env.VITE_REALTIME_URL ?? apiBase;
 
 const toggleOrderExpand = (orderId: number) => {
   const newExpanded = new Set(expandedOrders);
@@ -141,6 +173,18 @@ const generateDeliveryNote = (orderId: number) => {
       const detail = response.data;
       setOrderDetails((prev) => ({ ...prev, [orderId]: detail }));
 
+      if (detail.summary?.outboundNumber) {
+        try {
+          const movementResp = await api.get<MovementDto[]>(
+            `/movements/${detail.summary.outboundNumber}`
+          );
+          const stages = buildLineStages(movementResp.data ?? []);
+          setOrderLineStages((prev) => ({ ...prev, [orderId]: stages }));
+        } catch {
+          // Ignore movement fetch failures for read-only UI.
+        }
+      }
+
       const items = detail.items ?? [];
       const partNumbers = [...new Set(items.map((item) => item.partNumber).filter(Boolean))];
       const newSuggested: Record<string, string> = {};
@@ -170,12 +214,87 @@ const generateDeliveryNote = (orderId: number) => {
     }
   };
 
+  const buildLineStages = (movements: MovementDto[]) => {
+    const stages: Record<string, number> = {};
+    movements.forEach((movement) => {
+      const partNumber = movement.partNumber ?? "";
+      if (!partNumber) return;
+      const stage = movementStage(movement.movementType ?? "");
+      const current = stages[partNumber] ?? 0;
+      if (stage > current) {
+        stages[partNumber] = stage;
+      }
+    });
+    return stages;
+  };
+
+  const movementStage = (movementType: string) => {
+    const type = movementType.toUpperCase();
+    if (type.startsWith("O109")) return 4;
+    if (type.startsWith("O106")) return 3;
+    if (type.startsWith("O104")) return 2;
+    if (type.startsWith("O103")) return 1;
+    return 0;
+  };
+
+  const statusLabelForStage = (stage: number) => {
+    if (stage >= 4) return "[✓✓✓✓]";
+    if (stage === 3) return "[✓✓✓]";
+    if (stage === 2) return "[✓✓]";
+    if (stage === 1) return "[✓]";
+    return "[ ]";
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("godam_token");
+    const socket = io(realtimeBase, {
+      transports: ["websocket"],
+      auth: token ? { token } : undefined,
+    });
+
+    socket.on("PICKED", (payload: Record<string, unknown>) => {
+      const orderId = Number(payload.orderId);
+      const partNumber = String(payload.partNumber ?? "");
+      const pickedQty = Number(payload.pickedQty ?? payload.qty ?? 0);
+      const pickedBy = payload.pickedBy ? String(payload.pickedBy) : undefined;
+      if (!orderId || !partNumber) return;
+      setOrderLineStages((prev) => {
+        const current = prev[orderId] ?? {};
+        const nextStage = Math.max(current[partNumber] ?? 0, 1);
+        return { ...prev, [orderId]: { ...current, [partNumber]: nextStage } };
+      });
+      setOrderDetails((prev) => {
+        const detail = prev[orderId];
+        if (!detail) return prev;
+        const updatedItems = detail.items.map((item) => {
+          if (item.partNumber !== partNumber) return item;
+          return {
+            ...item,
+            pickedQty: pickedQty || item.pickedQty,
+            pickedBy: pickedBy || item.pickedBy,
+          };
+        });
+        return { ...prev, [orderId]: { ...detail, items: updatedItems } };
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [realtimeBase]);
+
   const statusLabel = (order: OrderSummaryDto) => {
     const picking = (order.pickingStatus ?? "").toUpperCase();
     const checking = (order.checkingStatus ?? "").toUpperCase();
     if (checking === "COMPLETED") return "CHECKED";
     if (picking === "COMPLETED") return "PICKED";
-    if (picking === "PICK_REQUESTED" || checking === "PICK_REQUESTED") return "PICK REQUESTED";
+    if (
+      picking === "PICK_REQUESTED" ||
+      picking === "PICK_REQUESTED_OVERRIDE" ||
+      checking === "PICK_REQUESTED"
+    ) {
+      return "PICK REQUESTED";
+    }
     return "PROCESSING";
   };
 
@@ -225,6 +344,7 @@ const generateDeliveryNote = (orderId: number) => {
   useEffect(() => {
     setActionMessage(null);
     setActionError(null);
+    setEditItemError(null);
     if (selectedOrderId) {
       const detail = orderDetails[selectedOrderId];
       if (detail) {
@@ -237,6 +357,9 @@ const generateDeliveryNote = (orderId: number) => {
           reason: "",
           performedBy: "",
         }));
+        const firstItem = detail.items?.[0];
+        setEditItemPartNumber(firstItem?.partNumber ?? "");
+        setEditItemQty(firstItem ? String(firstItem.qty ?? "") : "");
       }
     }
   }, [selectedOrderId, orderDetails]);
@@ -296,7 +419,7 @@ const generateDeliveryNote = (orderId: number) => {
         customerPo: String(row["po"] ?? "").trim() || undefined,
         partNumber: String(row["part number"] ?? "").trim(),
         qty: Number(row["quantity"] ?? 0),
-        customerName: String(row["customer"] ?? "").trim() || undefined,
+        customerId: String(row["customer"] ?? "").trim() || undefined,
         invoiceNumber: String(row["invoice"] ?? "").trim() || undefined,
       }));
       const valid = rows.filter((row) => row.outboundNumber && row.partNumber);
@@ -358,6 +481,47 @@ const generateDeliveryNote = (orderId: number) => {
     }
   };
 
+  const submitEditOrderItem = async () => {
+    if (!selectedOrderId) return;
+    if (!editForm.reason.trim()) {
+      setEditItemError("Provide a reason for editing.");
+      return;
+    }
+    if (!editItemPartNumber) {
+      setEditItemError("Select a part number to edit.");
+      return;
+    }
+    const qtyValue = Number(editItemQty);
+    if (!Number.isFinite(qtyValue) || qtyValue <= 0) {
+      setEditItemError("Qty must be greater than zero.");
+      return;
+    }
+    setEditItemLoading(true);
+    setEditItemError(null);
+    try {
+      const response = await api.patch<OrderItemDto>(`/orders/${selectedOrderId}/items`, {
+        partNumber: editItemPartNumber,
+        qty: qtyValue,
+        reason: editForm.reason,
+        performedBy: editForm.performedBy || undefined,
+      });
+      setOrderDetails((prev) => {
+        const detail = prev[selectedOrderId];
+        if (!detail) return prev;
+        const updatedItems = detail.items.map((item) =>
+          item.partNumber === editItemPartNumber ? { ...item, ...response.data } : item
+        );
+        return { ...prev, [selectedOrderId]: { ...detail, items: updatedItems } };
+      });
+      setActionMessage(`Item ${editItemPartNumber} updated.`);
+      loadOrders(true);
+    } catch (error) {
+      setEditItemError(extractErrorMessage(error, "Item update failed. Check backend logs."));
+    } finally {
+      setEditItemLoading(false);
+    }
+  };
+
   const submitDeleteOrder = async () => {
     if (!selectedOrderId) return;
     if (!deleteForm.reason.trim()) {
@@ -384,8 +548,131 @@ const generateDeliveryNote = (orderId: number) => {
     }
   };
 
+  const openPickEditModal = (orderId: number, item: OrderItemDto) => {
+    setSelectedOrderId(orderId);
+    setSelectedPickItem(item);
+    setPickEditError(null);
+    const pickedSoFar = item.pickedQty ?? (item.pickedBy ? item.qty : 0);
+    setPickEditQty(String(pickedSoFar));
+    setShowPickEditModal(true);
+  };
+
+  const closePickEditModal = () => {
+    setShowPickEditModal(false);
+    setSelectedPickItem(null);
+    setPickEditQty("");
+    setPickEditError(null);
+  };
+
+  const submitPickEdit = async () => {
+    if (!selectedOrderId || !selectedPickItem) return;
+    const desiredQty = Number(pickEditQty);
+    if (!Number.isFinite(desiredQty) || desiredQty < 0) {
+      setPickEditError("Pick quantity must be zero or more.");
+      return;
+    }
+    if (desiredQty > selectedPickItem.qty) {
+      setPickEditError(`Pick quantity cannot exceed ${selectedPickItem.qty}.`);
+      return;
+    }
+    const alreadyPicked = selectedPickItem.pickedQty ?? 0;
+    if (desiredQty <= alreadyPicked) {
+      setPickEditError("Use the mobile picker to reduce picks. Web edit only increases.");
+      return;
+    }
+    setPickEditLoading(true);
+    setPickEditError(null);
+    try {
+      const delta = desiredQty - alreadyPicked;
+      const resolvedRack =
+        suggestedRack[selectedPickItem.partNumber] || selectedPickItem.pickedRack || "COMBINED";
+      const pickedBy = user?.username ?? "Admin";
+      const response = await api.post<OrderItemDto>(
+        `/orders/${selectedOrderId}/items/pick`,
+        {
+          partNumber: selectedPickItem.partNumber,
+          pickedRack: resolvedRack,
+          pickedBy,
+          pickedQty: delta,
+        }
+      );
+      setOrderDetails((prev) => {
+        const detail = prev[selectedOrderId];
+        if (!detail) return prev;
+        const updatedItems = detail.items.map((row) =>
+          row.partNumber === selectedPickItem.partNumber ? { ...row, ...response.data } : row
+        );
+        return { ...prev, [selectedOrderId]: { ...detail, items: updatedItems } };
+      });
+      setActionMessage(`Picked ${selectedPickItem.partNumber} +${delta}.`);
+      loadOrders(true);
+      closePickEditModal();
+    } catch (error) {
+      setPickEditError(extractErrorMessage(error, "Pick update failed. Check backend logs."));
+    } finally {
+      setPickEditLoading(false);
+    }
+  };
+
+  const handlePickItem = async (orderId: number, item: OrderItemDto) => {
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const resolvedRack =
+        suggestedRack[item.partNumber] || item.pickedRack || "COMBINED";
+      const pickedBy = user?.username ?? "Admin";
+      const response = await api.post<OrderItemDto>(`/orders/${orderId}/items/pick`, {
+        partNumber: item.partNumber,
+        pickedRack: resolvedRack,
+        pickedBy,
+        pickedQty: item.qty,
+      });
+      setOrderDetails((prev) => {
+        const detail = prev[orderId];
+        if (!detail) return prev;
+        const updatedItems = detail.items.map((row) =>
+          row.partNumber === item.partNumber ? { ...row, ...response.data } : row
+        );
+        return { ...prev, [orderId]: { ...detail, items: updatedItems } };
+      });
+      setActionMessage(`Picked ${item.partNumber} from ${resolvedRack}.`);
+      loadOrders(true);
+    } catch (error) {
+      setActionError(extractErrorMessage(error, "Pick failed. Check backend logs."));
+    }
+  };
+
+  const handleSystemPickItem = async (orderId: number, item: OrderItemDto) => {
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const response = await api.post<OrderItemDto>(`/orders/${orderId}/items/pick`, {
+        partNumber: item.partNumber,
+        pickedRack: "VENDOR",
+        pickedBy: "SYSTEM",
+        pickedQty: item.qty,
+      });
+      setOrderDetails((prev) => {
+        const detail = prev[orderId];
+        if (!detail) return prev;
+        const updatedItems = detail.items.map((row) =>
+          row.partNumber === item.partNumber ? { ...row, ...response.data } : row
+        );
+        return { ...prev, [orderId]: { ...detail, items: updatedItems } };
+      });
+      setActionMessage(`System picked ${item.partNumber}.`);
+      loadOrders(true);
+    } catch (error) {
+      setActionError(extractErrorMessage(error, "System pick failed. Check backend logs."));
+    }
+  };
+
   const handleSendForPickup = async () => {
     if (!selectedOrderId) return;
+    if (!sendOwnerPassword.trim()) {
+      setActionError("Owner password is required to send for pickup.");
+      return;
+    }
     setSendLoading(true);
     setActionError(null);
     try {
@@ -393,10 +680,13 @@ const generateDeliveryNote = (orderId: number) => {
         reason: sendReason || undefined,
         note: sendNote || undefined,
         performedBy: sendPerformedBy || undefined,
+        ownerPassword: sendOwnerPassword,
       });
       setSendReason("");
       setSendNote("");
       setSendPerformedBy("");
+      setSendOwnerPassword("");
+      setShowSendModal(false);
       setActionMessage("Sent to picker.");
       refreshView();
     } catch (error) {
@@ -428,7 +718,18 @@ const generateDeliveryNote = (orderId: number) => {
     const hasDetailError = detailErrors.has(order.orderId);
     const detail = orderDetails[order.orderId];
     const label = statusLabel(order);
-    const isSent = order.pickingStatus?.toUpperCase() === "PICK_REQUESTED";
+    const pickingStatus = order.pickingStatus?.toUpperCase() ?? "";
+    const isSent =
+      pickingStatus === "PICK_REQUESTED" || pickingStatus === "PICK_REQUESTED_OVERRIDE";
+    const pickingComplete = pickingStatus === "COMPLETED";
+    const canPickOrder = isAdmin && !order.dnCreated && !pickingComplete;
+    const canSystemPickOrder =
+      isAdmin &&
+      !order.dnCreated &&
+      (pickingStatus === "PROCESSING" ||
+        pickingStatus === "PICK_REQUESTED" ||
+        pickingStatus === "PICK_REQUESTED_OVERRIDE");
+    const canSendPickup = isAdmin && !order.dnCreated;
 
     return (
       <div key={order.orderId} className="order-card">
@@ -443,6 +744,14 @@ const generateDeliveryNote = (orderId: number) => {
             </div>
             <div className="order-card-meta">
               <span>{order.customerName ?? "-"}</span>
+              {order.customerId && (
+                <>
+                  <span className="separator">·</span>
+                  <span style={{ fontSize: "0.9em", color: "#94a3b8" }}>
+                    ID: {order.customerId}
+                  </span>
+                </>
+              )}
               <span className="separator">·</span>
               <span>PO: {order.customerPo ?? "-"}</span>
               <span className="separator">·</span>
@@ -451,6 +760,12 @@ const generateDeliveryNote = (orderId: number) => {
               <span className={order.dnCreated ? "dn-ok" : "dn-pending"}>
                 DN: {order.dnCreated ? "Created" : "Pending"}
               </span>
+              {order.insufficientStock ? (
+                <>
+                  <span className="separator">·</span>
+                  <span className="pill pill-warn">Stock Low</span>
+                </>
+              ) : null}
             </div>
           </div>
           <div className="order-card-actions" onClick={(e) => e.stopPropagation()}>
@@ -476,9 +791,13 @@ const generateDeliveryNote = (orderId: number) => {
               className="btn primary small"
               onClick={() => {
                 setSelectedOrderId(order.orderId);
-                handleSendForPickup();
+                setSendReason("");
+                setSendNote("");
+                setSendPerformedBy("");
+                setSendOwnerPassword("");
+                setShowSendModal(true);
               }}
-              disabled={sendLoading || isSent}
+              disabled={sendLoading || isSent || !canSendPickup}
             >
               {isSent ? "Sent" : "Send"}
             </button>
@@ -518,24 +837,100 @@ const generateDeliveryNote = (orderId: number) => {
                         <th>Part</th>
                         <th>Description</th>
                         <th>Qty</th>
+                        <th>Available</th>
                         <th>Suggested Rack</th>
                         <th>Picked</th>
+                        <th>Status</th>
+                        {canPickOrder && <th>Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {detail.items.map((item) => {
+                        const availableQty = Number(item.availableQty ?? 0);
+                        const orderedQty = Number(item.qty ?? 0);
                         const suggested =
                           suggestedRack[item.partNumber] ??
                           item.pickedRack ??
                           item.pickedBy ??
                           "-";
+                        const pickedSoFar = item.pickedQty ?? (item.pickedBy ? item.qty : 0);
+                        const isPicked = item.picked || pickedSoFar >= item.qty;
+                        const canPickItem = canPickOrder && !isPicked;
+                        const canSystemPickItem = canSystemPickOrder && !isPicked;
+                        const canEditPick = isAdmin && !order.dnCreated;
+                        const rowClass =
+                          availableQty <= 0
+                            ? "stock-zero"
+                            : availableQty < orderedQty
+                              ? "stock-shortage"
+                              : "";
+                        const stage =
+                          orderLineStages[order.orderId]?.[item.partNumber] ??
+                          (pickedSoFar > 0 ? 1 : 0);
                         return (
-                          <tr key={`${item.partNumber}-${item.qty}`}>
+                          <tr key={`${item.partNumber}-${item.qty}`} className={rowClass}>
                             <td className="part-number">{item.partNumber}</td>
                             <td>{item.description || "-"}</td>
                             <td>{item.qty}</td>
+                            <td>{availableQty}</td>
                             <td>{suggested}</td>
-                            <td>{item.pickedBy ? `by ${item.pickedBy}` : "waiting"}</td>
+                            <td>
+                              {pickedSoFar > 0
+                                ? `${pickedSoFar} / ${item.qty} ${item.pickedBy ? `by ${item.pickedBy}` : ""}`.trim()
+                                : "waiting"}
+                            </td>
+                            <td>
+                              <span className={`pick-status pick-status-${stage}`}>
+                                {statusLabelForStage(stage)}
+                              </span>
+                            </td>
+                            {canPickOrder && (
+                              <td>
+                                <button
+                                  className="btn tiny"
+                                  disabled={!canPickItem}
+                                  onClick={() => handlePickItem(order.orderId, item)}
+                                >
+                                  {isPicked ? "Picked" : "Pick"}
+                                </button>
+                                {canSystemPickOrder && (
+                                  <button
+                                    className="btn tiny ghost"
+                                    disabled={!canSystemPickItem}
+                                    onClick={() => handleSystemPickItem(order.orderId, item)}
+                                  >
+                                    System Pick
+                                  </button>
+                                )}
+                                {canEditPick && (
+                                  <button
+                                    className="btn tiny ghost"
+                                    onClick={() => openPickEditModal(order.orderId, item)}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </td>
+                            )}
+                            {!canPickOrder && canSystemPickOrder && (
+                              <td>
+                                <button
+                                  className="btn tiny ghost"
+                                  disabled={!canSystemPickItem}
+                                  onClick={() => handleSystemPickItem(order.orderId, item)}
+                                >
+                                  System Pick
+                                </button>
+                                {canEditPick && (
+                                  <button
+                                    className="btn tiny ghost"
+                                    onClick={() => openPickEditModal(order.orderId, item)}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -640,7 +1035,7 @@ const generateDeliveryNote = (orderId: number) => {
                           <td>{row.outboundNumber}</td>
                           <td>{row.partNumber}</td>
                           <td>{row.qty}</td>
-                          <td>{row.customerName ?? "-"}</td>
+                          <td>{row.customerId ?? "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -654,6 +1049,63 @@ const generateDeliveryNote = (orderId: number) => {
               </button>
               <button className="btn primary" onClick={submitUpload} disabled={uploading}>
                 {uploading ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSendModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Send to Pick</h3>
+              <button className="btn tiny" onClick={() => setShowSendModal(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <label>
+                Reason
+                <input
+                  className="search-input"
+                  value={sendReason}
+                  onChange={(event) => setSendReason(event.target.value)}
+                />
+              </label>
+              <label>
+                Note
+                <input
+                  className="search-input"
+                  value={sendNote}
+                  onChange={(event) => setSendNote(event.target.value)}
+                />
+              </label>
+              <label>
+                Your name
+                <input
+                  className="search-input"
+                  value={sendPerformedBy}
+                  onChange={(event) => setSendPerformedBy(event.target.value)}
+                />
+              </label>
+              <label>
+                Owner password
+                <input
+                  type="password"
+                  className="search-input"
+                  value={sendOwnerPassword}
+                  onChange={(event) => setSendOwnerPassword(event.target.value)}
+                />
+              </label>
+              {actionError && <div className="banner">{actionError}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setShowSendModal(false)}>
+                Cancel
+              </button>
+              <button className="btn primary" onClick={handleSendForPickup} disabled={sendLoading}>
+                {sendLoading ? "Sending..." : "Send to picker"}
               </button>
             </div>
           </div>
@@ -769,10 +1221,50 @@ const generateDeliveryNote = (orderId: number) => {
                   />
                 </label>
               </div>
+              <div className="form-grid">
+                <label>
+                  Part Number
+                  <select
+                    className="search-input"
+                    value={editItemPartNumber}
+                    onChange={(event) => {
+                      const partNumber = event.target.value;
+                      setEditItemPartNumber(partNumber);
+                      const match = selectedOrderItems.find(
+                        (item) => item.partNumber === partNumber
+                      );
+                      setEditItemQty(match ? String(match.qty ?? "") : "");
+                    }}
+                  >
+                    <option value="">Select part number</option>
+                    {selectedOrderItems.map((item) => (
+                      <option key={item.partNumber} value={item.partNumber}>
+                        {item.partNumber}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Item Qty
+                  <input
+                    className="search-input"
+                    value={editItemQty}
+                    onChange={(event) => setEditItemQty(event.target.value)}
+                  />
+                </label>
+              </div>
+              {editItemError && <div className="banner">{editItemError}</div>}
             </div>
             <div className="modal-actions">
               <button className="btn ghost" onClick={() => setShowEditModal(false)}>
                 Cancel
+              </button>
+              <button
+                className="btn ghost"
+                onClick={submitEditOrderItem}
+                disabled={editItemLoading}
+              >
+                {editItemLoading ? "Saving item..." : "Save item qty"}
               </button>
               <button className="btn primary" onClick={submitEditOrder} disabled={editLoading}>
                 {editLoading ? "Saving..." : "Save changes"}
@@ -819,6 +1311,46 @@ const generateDeliveryNote = (orderId: number) => {
               </button>
               <button className="btn warn" onClick={submitDeleteOrder} disabled={deleteLoading}>
                 {deleteLoading ? "Deleting..." : "Delete order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPickEditModal && selectedPickItem && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Edit Picked Qty</h3>
+              <button className="btn tiny" onClick={closePickEditModal}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Part: <strong>{selectedPickItem.partNumber}</strong>
+              </p>
+              <p>Ordered Qty: {selectedPickItem.qty}</p>
+              <label>
+                New picked qty
+                <input
+                  className="search-input"
+                  type="number"
+                  min={0}
+                  max={selectedPickItem.qty}
+                  value={pickEditQty}
+                  onChange={(event) => setPickEditQty(event.target.value)}
+                />
+              </label>
+              <p className="muted">Web edit supports increase only.</p>
+              {pickEditError && <div className="banner">{pickEditError}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={closePickEditModal}>
+                Cancel
+              </button>
+              <button className="btn primary" onClick={submitPickEdit} disabled={pickEditLoading}>
+                {pickEditLoading ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

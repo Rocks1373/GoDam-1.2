@@ -4,6 +4,7 @@ public class OrderUploadItemDto {
   private String salesOrder;
   private String outboundNumber;
   private String customerPo;
+  private String customerId;
   private String partNumber;
   private Integer qty;
   private String customerName;
@@ -31,6 +32,14 @@ public class OrderUploadItemDto {
 
   public void setCustomerPo(String customerPo) {
     this.customerPo = customerPo;
+  }
+
+  public String getCustomerId() {
+    return customerId;
+  }
+
+  public void setCustomerId(String customerId) {
+    this.customerId = customerId;
   }
 
   public String getPartNumber() {

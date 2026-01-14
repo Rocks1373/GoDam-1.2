@@ -12,7 +12,12 @@ public class CustomerLookupDto {
   private String requirements;
   private String receiver1Name;
   private String receiver1Email;
+  private String receiver1Designation;
+  private String receiver2Name;
+  private String receiver2Email;
+  private String receiver2Designation;
   private String notes;
+  private Boolean active;
 
   public Long getId() {
     return id;
@@ -102,11 +107,51 @@ public class CustomerLookupDto {
     this.receiver1Email = receiver1Email;
   }
 
+  public String getReceiver1Designation() {
+    return receiver1Designation;
+  }
+
+  public void setReceiver1Designation(String receiver1Designation) {
+    this.receiver1Designation = receiver1Designation;
+  }
+
+  public String getReceiver2Name() {
+    return receiver2Name;
+  }
+
+  public void setReceiver2Name(String receiver2Name) {
+    this.receiver2Name = receiver2Name;
+  }
+
+  public String getReceiver2Email() {
+    return receiver2Email;
+  }
+
+  public void setReceiver2Email(String receiver2Email) {
+    this.receiver2Email = receiver2Email;
+  }
+
+  public String getReceiver2Designation() {
+    return receiver2Designation;
+  }
+
+  public void setReceiver2Designation(String receiver2Designation) {
+    this.receiver2Designation = receiver2Designation;
+  }
+
   public String getNotes() {
     return notes;
   }
 
   public void setNotes(String notes) {
     this.notes = notes;
+  }
+
+  public Boolean getActive() {
+    return active;
+  }
+
+  public void setActive(Boolean active) {
+    this.active = active;
   }
 }

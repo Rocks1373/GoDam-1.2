@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
+  List<StockMovement> findAllByOrderByCreatedAtDesc();
+
   @Query("select coalesce(sum(m.qtyChange), 0) from StockMovement m where m.warehouseNo = :warehouseNo and m.partNumber = :partNumber and m.movementType in :types")
   int sumQtyByWarehousePartAndTypes(
       @Param("warehouseNo") String warehouseNo,
@@ -27,4 +29,9 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
       @Param("salesOrder") String salesOrder,
       @Param("partNumber") String partNumber,
       @Param("type") MovementType type);
+
+  @Query("select coalesce(sum(m.qtyChange), 0) from StockMovement m where m.partNumber = :partNumber and m.movementType in :types")
+  int sumQtyByPartNumberAndTypes(
+      @Param("partNumber") String partNumber,
+      @Param("types") List<MovementType> types);
 }

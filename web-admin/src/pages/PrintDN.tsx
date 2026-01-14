@@ -12,6 +12,10 @@ type PrintPreviewPayload = {
   dnNumber: string;
   outboundNumber: string;
   dateCreated: string;
+  invoiceNumber?: string;
+  customerPo?: string;
+  gappPo?: string;
+  preparedBy?: string;
   customer?: {
     name?: string;
     address?: string;
@@ -38,10 +42,25 @@ type PrintPreviewPayload = {
 type DeliveryNoteApiResponse = {
   id: number;
   dnNumber?: string;
+  invoiceNumber?: string;
+  customerPo?: string;
+  gappPo?: string;
+  preparedBy?: string;
+  truckType?: string;
+  dnDate?: string;
   outboundNumber?: string;
   address?: string;
   googleMapLink?: string;
   createdAt?: string;
+  status?: string;
+  // Snapshot fields - persisted at DN creation time
+  customerName?: string;
+  customerPhone?: string;
+  transporterName?: string;
+  transporterPhone?: string;
+  driverName?: string;
+  driverPhone?: string;
+  // Master entity references (kept for backward compatibility, but snapshot fields are preferred)
   customer?: {
     name?: string;
     locationText?: string;
@@ -74,7 +93,9 @@ type TemplatePayload = {
   gappPo?: string;
   customerPo?: string;
   invoice?: string;
+  status?: string;
   product?: string;
+  products?: string;
   customerName?: string;
   customerDisplayName?: string;
   address?: string;
@@ -91,8 +112,13 @@ type TemplatePayload = {
   totalCases?: number;
   grossWeight?: string;
   volume?: string;
+  pallets?: number;
   preparedBy?: string;
   preparedDate?: string;
+  deliveryMode?: "Transporter" | "Courier" | "Direct";
+  courierCompany?: string;
+  courierWaybill?: string;
+  directRemarks?: string;
   quantities?: Array<{
     partNumber?: string;
     description?: string;
@@ -100,7 +126,7 @@ type TemplatePayload = {
     uom?: string;
     condition?: string;
   }>;
-  drivers?: Array<{ name?: string; truck?: string; qty?: number }>;
+  drivers?: Array<{ name?: string; truck?: string; qty?: number; transporterName?: string }>;
 };
 
 const formatDateString = (value?: string): string | undefined => {
@@ -160,6 +186,10 @@ const mapPreviewToTemplate = (
   const totalQty = quantities.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
   return {
     dnNumber: preview.dnNumber,
+    dnDate: formatDateString(preview.dateCreated),
+    gappPo: preview.gappPo,
+    customerPo: preview.customerPo,
+    invoice: preview.invoiceNumber,
     outboundNumber: preview.outboundNumber,
     customerDisplayName: preview.customer?.name,
     address: preview.customer?.address,
@@ -172,6 +202,8 @@ const mapPreviewToTemplate = (
     driverName: preview.driver?.driverName,
     driverMobile: preview.driver?.driverNumber,
     truckType: preview.truckType,
+    deliveryMode: "Transporter",
+    products: undefined,
     quantities: quantities.map((item, index) => ({
       partNumber: `PREV-${index + 1}`,
       description: item.description,
@@ -184,11 +216,14 @@ const mapPreviewToTemplate = (
         name: preview.driver?.driverName,
         truck: preview.truckType,
         qty: totalQty || undefined,
+        transporterName: preview.transporter?.companyName,
       },
     ],
     totalCases: totalQty || undefined,
-    preparedBy: preparedByName,
+    pallets: 0,
+    preparedBy: preview.preparedBy ?? preparedByName,
     preparedDate: formatDateString(preview.dateCreated),
+    status: preview.status,
   };
 };
 
@@ -201,16 +236,30 @@ const mapDeliveryNoteToTemplate = (
   }
   const quantities = note.quantities ?? [];
   const totalQty = quantities.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+
+  // Use snapshot fields (persisted at DN creation) with fallback to master entity references
+  const customerName = note.customerName ?? note.customer?.name;
+  const transporterName = note.transporterName ?? note.transporter?.companyName;
+  const driverName = note.driverName ?? note.driver?.driverName;
+  const driverPhone = note.driverPhone ?? note.driver?.driverNumber;
+
   return {
     dnNumber: note.dnNumber,
+    dnDate: formatDateString(note.dnDate ?? note.createdAt),
+    gappPo: note.gappPo,
+    customerPo: note.customerPo,
+    invoice: note.invoiceNumber,
     outboundNumber: note.outboundNumber,
-    customerDisplayName: note.customer?.name,
+    // Use snapshot customer name - this is the legally preserved value
+    customerDisplayName: customerName,
     address: note.address ?? note.customer?.locationText,
     googleLocation: note.googleMapLink ?? note.customer?.googleLocation,
-    carrier: note.transporter?.companyName,
-    driverName: note.driver?.driverName,
-    driverMobile: note.driver?.driverNumber,
-    truckType: note.driver?.truckNo,
+    carrier: transporterName,
+    driverName: driverName,
+    driverMobile: driverPhone,
+    truckType: note.truckType ?? note.driver?.truckNo,
+    deliveryMode: "Transporter",
+    products: undefined,
     quantities: quantities.map((item, index) => ({
       partNumber: item.description ? `API-${index + 1}` : undefined,
       description: item.description,
@@ -220,14 +269,17 @@ const mapDeliveryNoteToTemplate = (
     })),
     drivers: [
       {
-        name: note.driver?.driverName,
-        truck: note.driver?.truckNo,
+        name: driverName,
+        truck: note.truckType ?? note.driver?.truckNo,
         qty: totalQty || undefined,
+        transporterName: transporterName,
       },
     ],
     totalCases: totalQty || undefined,
-    preparedBy: preparedByName,
-    preparedDate: formatDateString(note.createdAt),
+    pallets: 0,
+    preparedBy: note.preparedBy ?? preparedByName,
+    preparedDate: formatDateString(note.dnDate ?? note.createdAt),
+    status: note.status,
   };
 };
 
@@ -324,7 +376,7 @@ const PrintDN = () => {
         if (noteIdParam) {
           const numericId = Number(noteIdParam);
           if (!Number.isNaN(numericId)) {
-            const response = await api.get<DeliveryNoteApiResponse>(`/api/delivery-note/${numericId}`);
+            const response = await api.get<DeliveryNoteApiResponse>(`/delivery-note/${numericId}`);
             noteResponse = response.data;
           }
         }
@@ -351,8 +403,8 @@ const PrintDN = () => {
         const mergedPayload = mergePayloads(
           basePayload,
           mapPreviewToTemplate(previewPayload, preparedByName),
-          mapDeliveryNoteToTemplate(noteResponse, preparedByName),
-          mapOutboundToTemplate(outboundResponse)
+          mapOutboundToTemplate(outboundResponse),
+          mapDeliveryNoteToTemplate(noteResponse, preparedByName)
         );
         setTemplatePayload(mergedPayload);
         if (noteResponse && noteIdParam) {

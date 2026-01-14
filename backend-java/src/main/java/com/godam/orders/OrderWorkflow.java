@@ -14,7 +14,7 @@ import java.util.List;
 
 @Entity
 @Table(
-    name = "OrderWorkflows",
+    name = "order_workflows",
     indexes = {
       @Index(name = "UX_OrderWorkflow_Outbound", columnList = "outbound_number", unique = true)
     })
@@ -34,6 +34,9 @@ public class OrderWorkflow {
 
   @Column(name = "customer_po")
   private String customerPo;
+
+  @Column(name = "customer_id")
+  private String customerId;
 
   @Column(name = "customer_name")
   private String customerName;
@@ -91,6 +94,14 @@ public class OrderWorkflow {
 
   public void setCustomerPo(String customerPo) {
     this.customerPo = customerPo;
+  }
+
+  public String getCustomerId() {
+    return customerId;
+  }
+
+  public void setCustomerId(String customerId) {
+    this.customerId = customerId;
   }
 
   public String getCustomerName() {

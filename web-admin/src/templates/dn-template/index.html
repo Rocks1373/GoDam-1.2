@@ -24,19 +24,52 @@
         </div>
         <div class="dn-title-block">
           <div class="dn-document-title" data-en="DELIVERY NOTE" data-ar="شهادة تسليم">DELIVERY NOTE</div>
-          <div class="dn-meta">
+          <div id="dn-incomplete" class="dn-incomplete-flag">⚠ INCOMPLETE DELIVERY NOTE</div>
+          <div class="dn-meta-compact">
             <span>DN No:</span>
             <strong data-bind="dnNumber">DN20260101093045</strong>
           </div>
         </div>
       </header>
       <div class="dn-header">
+        <div class="dn-card dn-metadata-card">
+          <div class="dn-card-title" data-en="Document Details" data-ar="تفاصيل المستند">
+            Document Details
+          </div>
+          <div class="dn-metadata-grid">
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="Date:" data-ar="التاريخ:">Date:</span>
+              <span class="dn-metadata-value" data-bind="dnDate">01 Jan 2026</span>
+            </div>
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="GAPP SO:" data-ar="GAPP SO:">GAPP SO:</span>
+              <span class="dn-metadata-value" data-bind="gappPo">SO-45892</span>
+            </div>
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="Customer PO:" data-ar="PO العميل:">Customer PO:</span>
+              <span class="dn-metadata-value" data-bind="customerPo">PO-77812</span>
+            </div>
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="Outbound:" data-ar="الصادر:">Outbound:</span>
+              <span class="dn-metadata-value" data-bind="outboundNumber">OUT-2026-001</span>
+            </div>
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="Invoice No:" data-ar="رقم الفاتورة:">Invoice No:</span>
+              <span class="dn-metadata-value" data-bind="invoice">INV-9021</span>
+            </div>
+            <div class="dn-metadata-item">
+              <span class="dn-metadata-label" data-en="Products:" data-ar="المنتجات:">Products:</span>
+              <span class="dn-metadata-value" data-bind="products">N/A</span>
+            </div>
+          </div>
+        </div>
+
         <div class="dn-card">
-          <div class="dn-card-title" data-en="Delivery To" data-ar="التسليم إلى">
-            Delivery To
+          <div class="dn-card-title" data-en="DELIVERY TO" data-ar="التسليم إلى">
+            DELIVERY TO
           </div>
           <div class="dn-card-content">
-            <span class="dn-line" data-bind="customerDisplayName">Customer Company Name</span>
+            <span class="dn-line customer-name-bold" data-bind="customerDisplayName">Customer Company Name</span>
             <span class="dn-line" data-bind="customerAddress">123 Industrial Area, Riyadh 12345</span>
             <a
               id="google-location"
@@ -46,30 +79,36 @@
               target="_blank"
               >https://maps.google.com/?q=location</a
             >
-            <div class="dn-receiver-row">
-              <span data-bind="receiver1Name">Ahmed Al-Mohammed</span>
-              <span data-bind="receiver1Phone">+966 50 123 4567</span>
+
+            <div class="receiver-section">
+              <div class="receiver-label" data-en="Receiver 1" data-ar="المستلم 1">Receiver 1</div>
+              <div class="dn-dot">
+                <span data-en="Name:" data-ar="الاسم:">Name:</span>
+                <span class="receiver-value" data-bind="receiver1Name">Ahmed Al-Mohammed</span>
+              </div>
+              <div class="dn-dot">
+                <span data-en="Mobile:" data-ar="الجوال:">Mobile:</span>
+                <span class="receiver-value" data-bind="receiver1Phone">+966 50 123 4567</span>
+              </div>
             </div>
-            <div class="dn-receiver-row">
-              <span data-bind="receiver2Name">Mohammed Al-Ahmed</span>
-              <span data-bind="receiver2Phone">+966 55 987 6543</span>
+
+            <div class="receiver-section">
+              <div class="receiver-label" data-en="Receiver 2" data-ar="المستلم 2">Receiver 2</div>
+              <div class="dn-dot">
+                <span data-en="Name:" data-ar="الاسم:">Name:</span>
+                <span class="receiver-value" data-bind="receiver2Name">Mohammed Al-Ahmed</span>
+              </div>
+              <div class="dn-dot">
+                <span data-en="Mobile:" data-ar="الجوال:">Mobile:</span>
+                <span class="receiver-value" data-bind="receiver2Phone">+966 55 987 6543</span>
+              </div>
             </div>
-          </div>
-        </div>
-        <div class="dn-card">
-          <div class="dn-card-title" data-en="Dispatched From" data-ar="انطلق من">
-            Dispatched From
-          </div>
-          <div class="dn-card-content">
-            <span class="dn-line" data-bind="warehouse">GoDam Central Hub</span>
-            <span class="dn-line" data-bind="manager">Faisal Karim</span>
-            <span class="dn-line" data-bind="locationContact">+966 50 555 8900</span>
-            <span class="dn-line" data-bind="locationEmail">site.manager@gapp.sa</span>
           </div>
         </div>
       </div>
 
       <section class="items-section">
+        <div class="customer-name-emphasis" data-bind="customerDisplayName">Customer Company Name</div>
         <table class="dn-table">
           <thead>
             <tr>
@@ -82,85 +121,113 @@
             </tr>
           </thead>
           <tbody id="items-body"></tbody>
-          <tfoot>
-            <tr class="total-row">
-              <td colspan="3" data-en="TOTAL" data-ar="المجموع">TOTAL</td>
-              <td class="total-qty" data-bind="totalQuantity">264</td>
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
         </table>
       </section>
 
-      <section class="dn-summary">
-        <div class="dn-summary-card">
-          <div class="summary-label">Total</div>
-          <div class="summary-value" data-bind="totalCases">12</div>
+      <section class="dn-totals-section">
+        <div class="totals-row">
+          <div class="total-item">
+            <span class="total-label" data-en="Total Quantity:" data-ar="الكمية الإجمالية:">Total Quantity:</span>
+            <strong class="total-value" data-bind="totalCases">12</strong>
+          </div>
+          <div class="total-item">
+            <span class="total-label" data-en="Total Weight (KG):" data-ar="الوزن الإجمالي (كجم):">Total Weight (KG):</span>
+            <strong class="total-value" data-bind="grossWeight">1,250</strong>
+          </div>
+          <div class="total-item">
+            <span class="total-label" data-en="Total Volume (CBM):" data-ar="الحجم الإجمالي (م³):">Total Volume (CBM):</span>
+            <strong class="total-value" data-bind="volume">8.5</strong>
+          </div>
+          <div class="total-item">
+            <span class="total-label" data-en="Number of Pallets:" data-ar="عدد المنصات:">Number of Pallets:</span>
+            <strong class="total-value" data-bind="pallets">0</strong>
+          </div>
         </div>
-        <div class="dn-summary-card">
-          <div class="summary-label">Gross Weight (KG)</div>
-          <div class="summary-value" data-bind="grossWeight">1,250</div>
+      </section>
+
+      <section class="delivery-mode-section">
+        <div class="delivery-mode-title" data-en="DELIVERY TYPE" data-ar="نوع التسليم">DELIVERY TYPE</div>
+
+        <div id="logistics-transporter" class="logistics-mode" style="display: none;">
+          <div class="dn-drivers">
+            <div class="dn-driver-head">
+              <span data-en="Transporter" data-ar="الناقل">Transporter</span>
+              <span data-en="Driver Name" data-ar="اسم السائق">Driver Name</span>
+              <span data-en="Vehicle Type" data-ar="نوع المركبة">Vehicle Type</span>
+              <span data-en="Qty" data-ar="الكمية">Qty</span>
+            </div>
+            <div id="drivers-body"></div>
+          </div>
         </div>
-        <div class="dn-summary-card">
-          <div class="summary-label">Volume (CBM)</div>
-          <div class="summary-value" data-bind="volume">8.5</div>
+
+        <div id="logistics-courier" class="logistics-mode" style="display: none;">
+          <div class="logistics-info-row">
+            <span class="logistics-label" data-en="Courier Company:" data-ar="شركة البريد:">Courier Company:</span>
+            <span class="logistics-value" data-bind="courierCompany">Ajex Logistics</span>
+          </div>
+          <div class="logistics-info-row">
+            <span class="logistics-label" data-en="Waybill:" data-ar="بوليصة الشحن:">Waybill:</span>
+            <span class="logistics-value" data-bind="courierWaybill">A102XXXXXX</span>
+          </div>
+        </div>
+
+        <div id="logistics-direct" class="logistics-mode" style="display: none;">
+          <div class="logistics-info-row">
+            <span class="logistics-label" data-en="Remarks:" data-ar="ملاحظات:">Remarks:</span>
+            <span class="logistics-value" data-bind="directRemarks">_______________________________</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dn-mandatory-receiver">
+        <div class="mandatory-label" data-en="MANDATORY" data-ar="إلزامي">MANDATORY</div>
+        <div class="signature-cards">
+          <div class="signature-card">
+            <div class="signature-card-title" data-en="CUSTOMER SIGN" data-ar="توقيع العميل">CUSTOMER SIGN</div>
+            <div class="signature-card-fields">
+              <div class="dn-dot">
+                <span data-en="Name" data-ar="الاسم">Name</span>
+                <span class="dots-long"></span>
+              </div>
+              <div class="dn-dot">
+                <span data-en="Mobile" data-ar="الجوال">Mobile</span>
+                <span class="dots-long"></span>
+              </div>
+              <div class="dn-dot">
+                <span data-en="Iqama No" data-ar="رقم الإقامة">Iqama No</span>
+                <span class="dots-long"></span>
+              </div>
+              <div class="dn-dot">
+                <span data-en="Sign" data-ar="التوقيع">Sign</span>
+                <span class="dots-long"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="signature-card stamp-card">
+            <div class="signature-card-title" data-en="STAMP" data-ar="الختم">STAMP</div>
+            <div class="stamp-box">
+              <span class="stamp-watermark" data-en="STAMP" data-ar="الختم">STAMP</span>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="dn-footer">
-        <div class="dn-footer-top">
-          <div class="dn-card">
-            <div class="dn-card-title" data-en="Prepared By" data-ar="أعده">Prepared By</div>
-            <div class="dn-line prepared-name" data-bind="preparedBy">GoDam User</div>
-            <div class="dn-line dn-date" data-bind="preparedDate">12 Jan 2026</div>
-          </div>
-
-          <div class="dn-card">
-            <div class="dn-card-title" data-en="Delivery By" data-ar="تسليم بواسطة">Delivery By</div>
-            <div class="dn-dot">
-              <span>NAME</span>
-              <span class="dots"></span>
-            </div>
-            <div class="dn-dot">
-              <span>Mobile no.</span>
-              <span class="dots"></span>
-            </div>
-            <div class="dn-dot">
-              <span>SIGN</span>
-              <span class="dots"></span>
-            </div>
-            <div class="dn-dot">
-              <span>DATE</span>
-              <span class="dots"></span>
-            </div>
-            <div class="dn-dot">
-              <span>STAMP</span>
-              <span class="dots"></span>
-            </div>
-            <div class="dn-transporter">
-              <strong>Transporter Name</strong><br />
-              <span data-bind="carrier">GoDam Express Logistics</span>
-            </div>
-            <div class="dn-drivers">
-              <div class="dn-driver-head">
-                <span>Driver Name</span>
-                <span>Type of Truck</span>
-                <span>Qty</span>
-              </div>
-              <div id="drivers-body"></div>
-            </div>
-          </div>
-        </div>
-
         <p class="dn-declaration">
-          Any damage must be reported at the time of delivery. Any missing items must be reported within 48 hours from the delivery date.
+          <span data-en="Any damages or shortages must be reported within 48 hours of delivery." data-ar="يجب الإبلاغ عن أي أضرار أو نقص خلال 48 ساعة من التسليم.">
+            Any damages or shortages must be reported within 48 hours of delivery.
+          </span>
         </p>
 
-        <div class="dn-final">
-          <span class="dn-final-label">DN No:</span>
-          <span data-bind="dnNumber">DN20260101093045</span>
-          <span class="dn-final-label">Date:</span>
-          <span data-bind="dnDate">01 Jan 2026</span>
+        <p class="dn-advertisement">
+          <span data-en="Our Products: Huawei, Avaya, Hanwha, Schneider, Dauha, CommScope, Flir, Zoom, Kaspersky, LG" data-ar="منتجاتنا: Huawei, Avaya, Hanwha, Schneider, Dauha, CommScope, Flir, Zoom, Kaspersky, LG">
+            Our Products: Huawei, Avaya, Hanwha, Schneider, Dauha, CommScope, Flir, Zoom, Kaspersky, LG
+          </span>
+        </p>
+
+        <div class="dn-page-number">
+          <span data-en="Page" data-ar="صفحة">Page</span> <span class="page-num">1</span> <span data-en="of" data-ar="من">of</span> <span class="page-total">1</span>
         </div>
       </section>
     </div>
@@ -169,11 +236,13 @@
       const dnData = {
         dnNumber: "DN20260110114126",
         dnDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+        status: "COMPLETE",
         outboundNumber: "OUT-2026-001",
         gappPo: "SO-45892",
         customerPo: "PO-77812",
         invoice: "INV-9021",
-        product: "Hydraulic Valve Assembly",
+        products: "N/A",
+        deliveryMode: "Transporter",
         salesPerson: "NA",
         projectName: "NA",
         customerName: "Customer Company Name",
@@ -190,14 +259,17 @@
         manager: "Faisal Karim",
         locationContact: "+966 50 555 8900",
         locationEmail: "site.manager@gapp.sa",
-        carrier: "GoDam Express Logistics",
+        carrier: "Raad Al Shama",
+        courierCompany: "Ajex Logistics",
+        courierWaybill: "A102XXXXXX",
+        directRemarks: "",
         drivers: [
-          { name: "Youssef Al Faraj", truck: "Dyna 12T", qty: "12" },
-          { name: "Ahmed Ali", truck: "Pickup", qty: "6" }
+          { name: "Amjad Ali", truck: "Pickup", qty: "1", transporterName: "Raad Al Shama" }
         ],
         totalCases: 12,
         grossWeight: "1,250",
         volume: "8.5",
+        pallets: 0,
         preparedBy: "GoDam User",
         preparedDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
         quantities: [
@@ -207,75 +279,85 @@
         ]
       };
 
-      const populateBindings = () => {
-        if (!dnData.customerDisplayName && dnData.customerName) {
-          dnData.customerDisplayName = dnData.customerName;
-        }
-        document.querySelectorAll("[data-bind]").forEach((el) => {
-          const key = el.getAttribute("data-bind");
-          if (key && dnData[key] !== undefined) {
-            el.textContent = dnData[key];
+        const populateBindings = () => {
+          if (!dnData.customerDisplayName && dnData.customerName) {
+            dnData.customerDisplayName = dnData.customerName;
           }
-        });
 
-        const googleLink = document.getElementById("google-location");
-        if (googleLink && dnData.googleLocation) {
-          googleLink.textContent = dnData.googleLocation;
-          googleLink.href = dnData.googleLocation;
-        }
-
-        const itemsBody = document.getElementById("items-body");
-        if (itemsBody) {
-          itemsBody.innerHTML = "";
-          let totalQty = 0;
-          dnData.quantities.forEach((item, index) => {
-            totalQty += item.qty;
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${index + 1}</td>
-              <td>${item.partNumber}</td>
-              <td>${item.description}</td>
-              <td>${item.qty}</td>
-              <td>${item.uom}</td>
-              <td>${item.condition}</td>
-            `;
-            itemsBody.appendChild(row);
+          document.querySelectorAll("[data-bind]").forEach((el) => {
+            const key = el.getAttribute("data-bind");
+            if (key && dnData[key] !== undefined && dnData[key] !== null && dnData[key] !== "") {
+              el.textContent = dnData[key];
+            } else if (key) {
+              el.textContent = "";
+            }
           });
-          const totalCell = document.querySelector(".total-qty");
-          if (totalCell) {
-            totalCell.textContent = totalQty;
+
+          const googleLink = document.getElementById("google-location");
+          if (googleLink && dnData.googleLocation) {
+            googleLink.textContent = dnData.googleLocation;
+            googleLink.href = dnData.googleLocation;
           }
-        }
 
-        const driversBody = document.getElementById("drivers-body");
-        if (driversBody) {
-          driversBody.innerHTML = "";
-          dnData.drivers.forEach((driver) => {
-            const row = document.createElement("div");
-            row.className = "dn-driver-row";
-            row.innerHTML = `
-              <span>${driver.name}</span>
-              <span>${driver.truck}</span>
-              <span>${driver.qty}</span>
-            `;
-            driversBody.appendChild(row);
-          });
-        }
-      };
+          const incompleteFlag = document.getElementById("dn-incomplete");
+          if (incompleteFlag) {
+            const status = String(dnData.status || "").toUpperCase();
+            incompleteFlag.style.display = status === "INCOMPLETE" ? "block" : "none";
+          }
 
-      const formatTimestamp = () => {
-        const now = new Date();
-        const pad = (value) => String(value).padStart(2, "0");
-        return `DN${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      };
+          const quantities = Array.isArray(dnData.quantities) ? dnData.quantities : [];
+          const itemsBody = document.getElementById("items-body");
+          if (itemsBody) {
+            itemsBody.innerHTML = "";
+            let totalQty = 0;
+            quantities.forEach((item, index) => {
+              totalQty += item.qty;
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${item.partNumber || ""}</td>
+                <td>${item.description || ""}</td>
+                <td>${item.qty || 0}</td>
+                <td>${item.uom || ""}</td>
+                <td>${item.condition || ""}</td>
+              `;
+              itemsBody.appendChild(row);
+            });
+            const totalCell = document.querySelector(".total-qty");
+            if (totalCell) {
+              totalCell.textContent = totalQty;
+            }
+          }
 
-      const updateDnNumber = () => {
-        const dnNumber = formatTimestamp();
-        dnData.dnNumber = dnNumber;
-        document.querySelectorAll("[data-bind='dnNumber']").forEach((el) => {
-          el.textContent = dnNumber;
-        });
-      };
+          const deliveryMode = dnData.deliveryMode || "Transporter";
+          document.getElementById("logistics-transporter").style.display = "none";
+          document.getElementById("logistics-courier").style.display = "none";
+          document.getElementById("logistics-direct").style.display = "none";
+
+          if (deliveryMode === "Transporter") {
+            document.getElementById("logistics-transporter").style.display = "block";
+            const driverList = Array.isArray(dnData.drivers) ? dnData.drivers : [];
+            const driversBody = document.getElementById("drivers-body");
+            if (driversBody) {
+              driversBody.innerHTML = "";
+              driverList.forEach((driver) => {
+                const row = document.createElement("div");
+                row.className = "dn-driver-row";
+                row.innerHTML = `
+                  <span>${driver.transporterName || dnData.carrier || ""}</span>
+                  <span>${driver.name || ""}</span>
+                  <span>${driver.truck || ""}</span>
+                  <span>${driver.qty || ""}</span>
+                `;
+                driversBody.appendChild(row);
+              });
+            }
+          } else if (deliveryMode === "Courier") {
+            document.getElementById("logistics-courier").style.display = "block";
+          } else if (deliveryMode === "Direct") {
+            document.getElementById("logistics-direct").style.display = "block";
+          }
+        };
 
       const setLanguage = (lang) => {
         document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
@@ -286,7 +368,6 @@
 
       document.addEventListener("DOMContentLoaded", () => {
         populateBindings();
-        updateDnNumber();
         setLanguage("en");
       });
 

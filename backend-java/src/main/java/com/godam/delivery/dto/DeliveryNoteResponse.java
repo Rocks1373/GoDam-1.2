@@ -7,11 +7,25 @@ import java.util.List;
 public class DeliveryNoteResponse {
   private Long id;
   private String dnNumber;
+  private String customerPo;
+  private String gappPo;
+  private String invoiceNumber;
+  private String preparedBy;
+  private String truckType;
+  private Instant dnDate;
   private String outboundNumber;
   private String address;
   private String googleMapLink;
   private String requirements;
   private String status;
+
+  // Snapshot fields - persisted at DN creation time
+  private String customerName;
+  private String customerPhone;
+  private String transporterName;
+  private String transporterPhone;
+  private String driverName;
+  private String driverPhone;
   private Instant createdAt;
   private Instant updatedAt;
   private CustomerSummary customer;
@@ -33,6 +47,54 @@ public class DeliveryNoteResponse {
 
   public void setDnNumber(String dnNumber) {
     this.dnNumber = dnNumber;
+  }
+
+  public String getCustomerPo() {
+    return customerPo;
+  }
+
+  public void setCustomerPo(String customerPo) {
+    this.customerPo = customerPo;
+  }
+
+  public String getGappPo() {
+    return gappPo;
+  }
+
+  public void setGappPo(String gappPo) {
+    this.gappPo = gappPo;
+  }
+
+  public String getInvoiceNumber() {
+    return invoiceNumber;
+  }
+
+  public void setInvoiceNumber(String invoiceNumber) {
+    this.invoiceNumber = invoiceNumber;
+  }
+
+  public String getPreparedBy() {
+    return preparedBy;
+  }
+
+  public void setPreparedBy(String preparedBy) {
+    this.preparedBy = preparedBy;
+  }
+
+  public String getTruckType() {
+    return truckType;
+  }
+
+  public void setTruckType(String truckType) {
+    this.truckType = truckType;
+  }
+
+  public Instant getDnDate() {
+    return dnDate;
+  }
+
+  public void setDnDate(Instant dnDate) {
+    this.dnDate = dnDate;
   }
 
   public String getOutboundNumber() {
@@ -73,6 +135,54 @@ public class DeliveryNoteResponse {
 
   public void setStatus(String status) {
     this.status = status;
+  }
+
+  public String getCustomerName() {
+    return customerName;
+  }
+
+  public void setCustomerName(String customerName) {
+    this.customerName = customerName;
+  }
+
+  public String getCustomerPhone() {
+    return customerPhone;
+  }
+
+  public void setCustomerPhone(String customerPhone) {
+    this.customerPhone = customerPhone;
+  }
+
+  public String getTransporterName() {
+    return transporterName;
+  }
+
+  public void setTransporterName(String transporterName) {
+    this.transporterName = transporterName;
+  }
+
+  public String getTransporterPhone() {
+    return transporterPhone;
+  }
+
+  public void setTransporterPhone(String transporterPhone) {
+    this.transporterPhone = transporterPhone;
+  }
+
+  public String getDriverName() {
+    return driverName;
+  }
+
+  public void setDriverName(String driverName) {
+    this.driverName = driverName;
+  }
+
+  public String getDriverPhone() {
+    return driverPhone;
+  }
+
+  public void setDriverPhone(String driverPhone) {
+    this.driverPhone = driverPhone;
   }
 
   public Instant getCreatedAt() {

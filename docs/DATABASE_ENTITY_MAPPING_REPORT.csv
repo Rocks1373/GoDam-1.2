@@ -1,0 +1,40 @@
+Backend Entity/DTO,Database Table,Database Schema,Mapping Type,Used In Module,Key Relationships,Notes
+User.java,Users,godam,JPA Entity,Authentication/Authorization,Primary entity for user management,Maps to @Entity annotation
+Warehouse.java,Warehouses,godam,JPA Entity,Warehouse Management,Referenced by Stock via warehouse_no,Primary warehouse entity
+WarehouseAddress.java,warehouse_addresses,godam,JPA Entity,Warehouse Management,Standalone address records,Multiple addresses per warehouse
+Stock.java,Stock,godam,JPA Entity,Inventory Management,"FK to Warehouses, Users",Core inventory tracking
+StockMovement.java,StockMovements,godam,JPA Entity,Movement Tracking,"FK to Warehouses, Users",All stock transactions
+OrderWorkflow.java,OrderWorkflows,godam,JPA Entity,Order Management,Parent for OrderItems,**Contains dn_created flag**
+OrderItem.java,OrderItems,godam,JPA Entity,Order Management,FK to OrderWorkflows,Line items per order
+OrderTransport.java,OrderTransport,godam,JPA Entity,Transport Management,"FK to OrderWorkflows, Transporters, Drivers",Transport assignment per order
+OrderSerial.java,OrderSerials,godam,JPA Entity,Serial Management,FK to OrderWorkflows,Serial number tracking
+OrderAdminAudit.java,OrderAdminAudits,godam,JPA Entity,Audit Logging,Standalone audit records,Admin action history
+Transporter.java,Transporters,godam,JPA Entity,Master Data,Referenced by OrderTransport,Transporter company records
+Driver.java,Drivers,godam,JPA Entity,Master Data,"FK to Users, referenced by OrderTransport",Driver profiles with documents
+Customer.java,Customers,godam,JPA Entity,Master Data,Referenced by DeliveryNote,Customer contact information
+DeliveryNote.java,delivery_notes,godam,JPA Entity,Delivery Management,"FK to Customers, Transporters, Drivers",**Not in provided schema - may be separate table**
+DeliveryNoteQty.java,delivery_note_quantities,godam,JPA Entity,Delivery Management,FK to DeliveryNote,Quantities per DN
+Notification.java,Notifications,godam,JPA Entity,Notification System,FK to OrderWorkflows,User notifications
+OrderFile.java,OrderFiles,godam,JPA Entity,File Management,FK to Users,Uploaded order documents
+ChatMessage.java,chat_messages,godam,JPA Entity,Communication,Standalone messages,Internal chat system
+StockActionLog.java,stock_action_logs,godam,JPA Entity,Audit Logging,"FK to Stock, Users",Stock change tracking
+AiActivityLog.java,ai_activity_log,godam,JPA Entity,AI Module,Standalone logs,AI command history
+OrderSummaryDto.java,OrderWorkflows,godam,DTO (Read),API Response,Maps from OrderWorkflow entity,Summary view with dnCreated flag
+OrderViewDto.java,OrderWorkflows + OrderItems,godam,DTO (Read),API Response,Joins OrderWorkflows and OrderItems,Full order details
+OrderItemDto.java,OrderItems,godam,DTO (Read),API Response,Maps from OrderItem entity,Item details with picking info
+DeliveryNoteRequest.java,N/A - Input DTO,godam,DTO (Write),API Request,Maps TO DeliveryNote entity,**Now includes orderId field (FIXED)**
+DeliveryNoteResponse.java,delivery_notes,godam,DTO (Read),API Response,Maps FROM DeliveryNote entity,Full DN details with nested objects
+MobileOrderSummaryDto.java,OrderWorkflows,godam,DTO (Read),Mobile API,Maps from OrderWorkflow,Mobile-optimized summary
+DnViewResponse.java,Multiple tables,godam,DTO (Read),DN Module,Joins OrderWorkflows + OrderTransport + Stock,Legacy DN view
+DnCreateRequest.java,N/A - Input DTO,godam,DTO (Write),DN Module,Maps TO OrderTransport + OrderWorkflow,Legacy DN creation
+matching_dataset_meta,matching_dataset_meta,godam,Data Table,Matching Module,Standalone metadata,Upload tracking
+matching_masters_input_rows,matching_masters_input_rows,godam,Data Table,Matching Module,Standalone input data,Master data input
+matching_masters_accessories,matching_masters_accessories,godam,Lookup Table,Matching Module,Part classification,Accessories parts list
+matching_masters_service_parts,matching_masters_service_parts,godam,Lookup Table,Matching Module,Part classification,Service parts list
+matching_masters_software_parts,matching_masters_software_parts,godam,Lookup Table,Matching Module,Part classification,Software parts list
+matching_masters_vcust,matching_masters_vcust,godam,Lookup Table,Matching Module,Customer mapping,SAP customer data
+matching_masters_so,matching_masters_so,godam,Lookup Table,Matching Module,Sales order mapping,SAP SO data
+matching_masters_po,matching_masters_po,godam,Lookup Table,Matching Module,Purchase order mapping,SAP PO data
+matching_masters_contracts,matching_masters_contracts,godam,Lookup Table,Matching Module,Contract mapping,Contract master data
+matching_dn_files,matching_dn_files,godam,Data Table,Matching Module,FK to matching_dn_items,Uploaded DN files with blob
+matching_dn_items,matching_dn_items,godam,Data Table,Matching Module,FK to matching_dn_files,DN line items for matching

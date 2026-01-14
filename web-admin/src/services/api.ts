@@ -19,9 +19,6 @@ export const apiBase = resolveApiBase();
 export const api = axios.create({
   baseURL: apiBase,
   timeout: 15000,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 // Auth API functions

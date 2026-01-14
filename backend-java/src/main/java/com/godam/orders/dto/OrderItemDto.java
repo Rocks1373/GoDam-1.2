@@ -4,6 +4,7 @@ public class OrderItemDto {
   private String partNumber;
   private String description;
   private double qty;
+  private double availableQty;
   private String pickedBy;
   private String pickedRack;
   private boolean isPicked;
@@ -30,6 +31,14 @@ public class OrderItemDto {
 
   public void setQty(double qty) {
     this.qty = qty;
+  }
+
+  public double getAvailableQty() {
+    return availableQty;
+  }
+
+  public void setAvailableQty(double availableQty) {
+    this.availableQty = availableQty;
   }
 
   public String getPickedBy() {

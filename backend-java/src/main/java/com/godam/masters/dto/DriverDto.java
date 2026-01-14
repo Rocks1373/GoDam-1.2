@@ -6,6 +6,15 @@ public class DriverDto {
   private String driverNumber;
   private String idNumber;
   private String truckNo;
+  private String nationality;
+  private String iqamaExpiryDate;
+  private String licenseExpiryDate;
+  private String iqamaImage;
+  private String licenseImage;
+  private String istimaraImage;
+  private String insuranceImage;
+  private String truckFrontImage;
+  private String truckBackImage;
   private boolean isActive;
 
   public Long getId() {
@@ -46,6 +55,78 @@ public class DriverDto {
 
   public void setTruckNo(String truckNo) {
     this.truckNo = truckNo;
+  }
+
+  public String getNationality() {
+    return nationality;
+  }
+
+  public void setNationality(String nationality) {
+    this.nationality = nationality;
+  }
+
+  public String getIqamaExpiryDate() {
+    return iqamaExpiryDate;
+  }
+
+  public void setIqamaExpiryDate(String iqamaExpiryDate) {
+    this.iqamaExpiryDate = iqamaExpiryDate;
+  }
+
+  public String getLicenseExpiryDate() {
+    return licenseExpiryDate;
+  }
+
+  public void setLicenseExpiryDate(String licenseExpiryDate) {
+    this.licenseExpiryDate = licenseExpiryDate;
+  }
+
+  public String getIqamaImage() {
+    return iqamaImage;
+  }
+
+  public void setIqamaImage(String iqamaImage) {
+    this.iqamaImage = iqamaImage;
+  }
+
+  public String getLicenseImage() {
+    return licenseImage;
+  }
+
+  public void setLicenseImage(String licenseImage) {
+    this.licenseImage = licenseImage;
+  }
+
+  public String getIstimaraImage() {
+    return istimaraImage;
+  }
+
+  public void setIstimaraImage(String istimaraImage) {
+    this.istimaraImage = istimaraImage;
+  }
+
+  public String getInsuranceImage() {
+    return insuranceImage;
+  }
+
+  public void setInsuranceImage(String insuranceImage) {
+    this.insuranceImage = insuranceImage;
+  }
+
+  public String getTruckFrontImage() {
+    return truckFrontImage;
+  }
+
+  public void setTruckFrontImage(String truckFrontImage) {
+    this.truckFrontImage = truckFrontImage;
+  }
+
+  public String getTruckBackImage() {
+    return truckBackImage;
+  }
+
+  public void setTruckBackImage(String truckBackImage) {
+    this.truckBackImage = truckBackImage;
   }
 
   public boolean isActive() {

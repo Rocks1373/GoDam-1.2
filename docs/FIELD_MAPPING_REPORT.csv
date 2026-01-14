@@ -1,0 +1,76 @@
+Frontend Field (TypeScript),Backend DTO Field (Java),Backend Entity Field (Java),Database Column (SQL),Database Table,Data Flow Direction,Module,Notes
+orderId,orderId,id,id,OrderWorkflows,Frontend → Backend → DB,Delivery Notes,**FIXED: Added to DeliveryNoteRequest**
+dnNumber,dnNumber,dnNumber,dn_number,delivery_notes,Bidirectional,Delivery Notes,Delivery note identifier
+outboundNumber,outboundNumber,outboundNumber,outbound_number,OrderWorkflows,Bidirectional,Orders/DN,Unique order number
+customerId,customerId,customer.id,id,Customers,Frontend → Backend,Delivery Notes,Customer FK
+transporterId,transporterId,transporter.id,id,Transporters,Frontend → Backend,Delivery Notes,Transporter FK
+driverId,driverId,driver.id,id,Drivers,Frontend → Backend,Delivery Notes,Driver FK
+dnCreated,dnCreated,dnCreated,dn_created,OrderWorkflows,Backend → Frontend,Orders,**FIXED: Now set when DN saved**
+invoiceNumber,invoiceNumber,invoiceNumber,invoice_number,OrderWorkflows,Bidirectional,Orders,Invoice number
+gappPo,gappPo,gappPo,gapp_po,OrderWorkflows,Bidirectional,Orders,GAPP purchase order
+customerPo,customerPo,customerPo,customer_po,OrderWorkflows,Bidirectional,Orders,Customer PO number
+customerName,customerName,customerName,customer_name,OrderWorkflows,Bidirectional,Orders,Customer name snapshot
+pickingStatus,pickingStatus,pickingStatus,picking_status,OrderWorkflows,Backend → Frontend,Orders,Picking workflow state
+checkingStatus,checkingStatus,checkingStatus,checking_status,OrderWorkflows,Backend → Frontend,Orders,Checking workflow state
+itemCount,itemCount,N/A (computed),COUNT(*),OrderItems,Backend → Frontend (computed),Orders,Aggregated count
+totalQty,totalQty,N/A (computed),SUM(qty),OrderItems,Backend → Frontend (computed),Orders,Aggregated sum
+partNumber,partNumber,partNumber,part_number,OrderItems,Bidirectional,Orders,Part identifier
+description,description,description,description,OrderItems,Bidirectional,Orders,Part description
+qty,qty,qty,qty,OrderItems,Bidirectional,Orders,Quantity ordered
+pickedBy,pickedBy,pickedBy,picked_by,OrderItems,Backend → Frontend,Orders,Picker username
+pickedRack,pickedRack,pickedRack,picked_rack,OrderItems,Backend → Frontend,Orders,Picked from rack location
+picked,picked,isPicked,is_picked,OrderItems,Backend → Frontend,Orders,Boolean picked flag
+username,username,username,username,Users,Bidirectional,Authentication,User login name
+role,role,role,role,Users,Backend → Frontend,Authentication,User role (ADMIN/MANAGER/VIEWER)
+warehouseNo,warehouseNo,warehouseNo,warehouse_no,Stock,Bidirectional,Inventory,Warehouse reference
+storageLocation,storageLocation,storageLocation,storage_location,Stock,Bidirectional,Inventory,Storage bin code
+rack,rack,rack,rack,Stock,Bidirectional,Inventory,Rack location
+combineRack,combineRack,combineRack,combine_rack,Stock,Backend → Frontend,Inventory,Combined rack identifier
+serialRequired,serialRequired,serialRequired,serial_required,OrderWorkflows,Backend → Frontend,Orders,Serial entry required flag
+serialCompleted,serialCompleted,serialCompleted,serial_completed,OrderWorkflows,Backend → Frontend,Orders,Serial entry done flag
+transporter.companyName,transporter.companyName,transporter.companyName,company_name,Transporters,Backend → Frontend,Delivery Notes,Transporter company name
+transporter.contactName,transporter.contactName,transporter.contactName,contact_name,Transporters,Backend → Frontend,Delivery Notes,Contact person
+transporter.email,transporter.email,transporter.email,email,Transporters,Backend → Frontend,Delivery Notes,Contact email
+driver.driverName,driver.driverName,driver.driverName,driver_name,Drivers,Backend → Frontend,Delivery Notes,Driver full name
+driver.driverNumber,driver.driverNumber,driver.driverNumber,driver_number,Drivers,Backend → Frontend,Delivery Notes,Driver phone
+driver.truckNo,driver.truckNo,driver.truckNo,truck_no,Drivers,Backend → Frontend,Delivery Notes,Vehicle registration
+driver.idNumber,driver.idNumber,driver.idNumber,id_number,Drivers,Backend → Frontend,Delivery Notes,National ID/Iqama
+customer.name,customer.name,customer.name,name,Customers,Backend → Frontend,Delivery Notes,Customer company name
+customer.city,customer.city,customer.city,city,Customers,Backend → Frontend,Delivery Notes,Customer city
+customer.locationText,customer.locationText,customer.locationText,location_text,Customers,Backend → Frontend,Delivery Notes,Address text
+customer.googleLocation,customer.googleLocation,customer.googleLocation,google_location,Customers,Backend → Frontend,Delivery Notes,Google Maps link
+customer.receiver1Name,customer.receiver1Name,customer.receiver1Name,receiver1_name,Customers,Backend → Frontend,Delivery Notes,Primary contact name
+customer.receiver1Contact,customer.receiver1Contact,customer.receiver1Contact,receiver1_contact,Customers,Backend → Frontend,Delivery Notes,Primary contact phone
+customer.receiver2Name,customer.receiver2Name,customer.receiver2Name,receiver2_name,Customers,Backend → Frontend,Delivery Notes,Secondary contact name
+customer.receiver2Contact,customer.receiver2Contact,customer.receiver2Contact,receiver2_contact,Customers,Backend → Frontend,Delivery Notes,Secondary contact phone
+address,address,address,address,delivery_notes,Bidirectional,Delivery Notes,Delivery address override
+googleMapLink,googleMapLink,googleMapLink,google_map_link,delivery_notes,Bidirectional,Delivery Notes,Google Maps link override
+requirements,requirements,requirements,requirements,delivery_notes,Bidirectional,Delivery Notes,Special requirements text
+status,status,status,status,delivery_notes,Bidirectional,Delivery Notes,DN status (draft/final)
+quantities[].description,quantities[].description,quantities[].description,description,delivery_note_quantities,Frontend → Backend,Delivery Notes,Quantity item description
+quantities[].quantity,quantities[].quantity,quantities[].quantity,quantity,delivery_note_quantities,Frontend → Backend,Delivery Notes,Quantity amount
+createdAt,createdAt,createdAt,created_at,delivery_notes,Backend → Frontend,Delivery Notes,Record creation timestamp
+updatedAt,updatedAt,updatedAt,updated_at,delivery_notes,Backend → Frontend,Delivery Notes,Last update timestamp
+movementType,movementType,movementType,movement_type,StockMovements,Bidirectional,Stock Movements,Movement type code
+qtyChange,qtyChange,qtyChange,qty_change,StockMovements,Frontend → Backend,Stock Movements,Quantity delta (+/-)
+dnNumber (movement),dnNumber,dnNumber,dn_number,StockMovements,Bidirectional,Stock Movements,Related DN number
+salesOrder,salesOrder,salesOrder,sales_order,StockMovements,Bidirectional,Stock Movements,SO number reference
+suggestedRack,suggestedRack,suggestedRack,suggested_rack,StockMovements,Backend → Frontend,Stock Movements,System suggested location
+actualRack,actualRack,actualRack,actual_rack,StockMovements,Frontend → Backend,Stock Movements,Actual picked location
+pickedQty,pickedQty,pickedQty,picked_qty,StockMovements,Frontend → Backend,Stock Movements,Actually picked quantity
+requestedQty,requestedQty,requestedQty,requested_qty,StockMovements,Backend → Frontend,Stock Movements,Originally requested qty
+overrideFlag,overrideFlag,overrideFlag,override_flag,StockMovements,Frontend → Backend,Stock Movements,Override yes/no
+overrideReason,overrideReason,overrideReason,override_reason,StockMovements,Frontend → Backend,Stock Movements,Reason text
+pickTime,pickTime,pickTime,pick_time,StockMovements,Backend → Frontend,Stock Movements,Picking timestamp
+confirmTime,confirmTime,confirmTime,confirm_time,StockMovements,Backend → Frontend,Stock Movements,Confirmation timestamp
+vehicleType,vehicleType,vehicleType,vehicle_type,OrderTransport,Bidirectional,Transport,Vehicle size/type
+vehicleNumber,vehicleNumber,N/A,N/A,N/A,Frontend only,Transport,May map to Driver.truckNo
+fromLocation,fromLocation,fromLocation,from_location,OrderTransport,Bidirectional,Transport,Origin location (default Riyadh)
+toLocation,toLocation,toLocation,to_location,OrderTransport,Bidirectional,Transport,Destination location
+carrier,carrier,transporterName,transporter_name,OrderTransport,Bidirectional,DN/Transport,Transporter company snapshot
+serialNumber,serialNumber,serialNumber,serial_number,OrderSerials,Frontend → Backend,Serial Management,Serial number value
+actionType,actionType,actionType,action_type,stock_action_logs,Backend → Frontend,Audit,Stock action type
+performedBy,performedBy,username,username,stock_action_logs,Backend → Frontend,Audit,User who performed action
+message (notification),message,message,message,notifications,Backend → Frontend,Notifications,Notification text
+isRead,isRead,isRead,is_read,notifications,Frontend → Backend,Notifications,Read status flag
+type (notification),type,type,type,notifications,Backend → Frontend,Notifications,Notification category

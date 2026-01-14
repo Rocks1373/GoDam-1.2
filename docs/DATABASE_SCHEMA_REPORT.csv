@@ -1,0 +1,235 @@
+Schema,Table Name,Column Name,Data Type (PostgreSQL),Data Type (SQL Server),Is Primary Key,Is Foreign Key,FK References,Nullable,Default Value,Description
+godam,Users,user_id,BIGSERIAL,INTEGER IDENTITY,YES,NO,,NO,,User unique identifier
+godam,Users,username,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,User login name
+godam,Users,password_hash,VARCHAR(512),NVARCHAR(255),NO,NO,,NO,,Hashed password
+godam,Users,role,VARCHAR(20),VARCHAR(20),NO,NO,,NO,'VIEWER',User role (ADMIN/MANAGER/VIEWER)
+godam,Users,is_active,BOOLEAN,BIT,NO,NO,,NO,TRUE,Active status flag
+godam,Users,refresh_token_hash,TEXT,NVARCHAR(255),NO,NO,,YES,,JWT refresh token hash
+godam,Users,permissions,TEXT,NVARCHAR(MAX),NO,NO,,YES,,User permissions JSON
+godam,Users,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,Users,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,Warehouses,warehouse_id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Warehouse unique identifier
+godam,Warehouses,warehouse_no,VARCHAR(50),VARCHAR(50),NO,NO,,NO,,Warehouse number code
+godam,Warehouses,name,VARCHAR(200),VARCHAR(200),NO,NO,,NO,,Warehouse name
+godam,Warehouses,address,TEXT,NVARCHAR(500),NO,NO,,YES,,Physical address
+godam,Warehouses,gps_lat,DOUBLE PRECISION,FLOAT,NO,NO,,YES,,GPS latitude coordinate
+godam,Warehouses,gps_long,DOUBLE PRECISION,FLOAT,NO,NO,,YES,,GPS longitude coordinate
+godam,Warehouses,is_active,BOOLEAN,BIT,NO,NO,,NO,TRUE,Active status flag
+godam,warehouse_addresses,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Address unique identifier
+godam,warehouse_addresses,name,VARCHAR(200),VARCHAR(200),NO,NO,,NO,,Address label/name
+godam,warehouse_addresses,address,TEXT,NVARCHAR(500),NO,NO,,NO,,Full address text
+godam,warehouse_addresses,manager_name,VARCHAR(150),VARCHAR(150),NO,NO,,YES,,Manager full name
+godam,warehouse_addresses,manager_email,VARCHAR(150),VARCHAR(150),NO,NO,,YES,,Manager email address
+godam,warehouse_addresses,is_default,BOOLEAN,INTEGER,NO,NO,,NO,FALSE,Default address flag
+godam,warehouse_addresses,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,warehouse_addresses,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,Stock,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Stock item unique identifier
+godam,Stock,warehouse_no,VARCHAR(50),VARCHAR(50),NO,YES,Warehouses(warehouse_no),NO,,Warehouse reference number
+godam,Stock,storage_location,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Storage location code
+godam,Stock,part_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Part number identifier
+godam,Stock,sap_pn,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,SAP part number
+godam,Stock,description,TEXT,NVARCHAR(400),NO,NO,,YES,,Part description
+godam,Stock,vendor_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Vendor code
+godam,Stock,vendor_name,VARCHAR(100),NVARCHAR(255),NO,NO,,YES,,Vendor company name
+godam,Stock,category,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Product category
+godam,Stock,sub_category,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Product sub-category
+godam,Stock,batch_no,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Batch/Lot number
+godam,Stock,parent_pn,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Parent part number
+godam,Stock,base_qty,DOUBLE PRECISION,FLOAT,NO,NO,,NO,1,Base quantity multiplier
+godam,Stock,pn_indicator,CHAR(1),CHAR(1),NO,NO,,YES,,Part number indicator flag
+godam,Stock,is_schneider,BOOLEAN,BIT,NO,NO,,NO,FALSE,Schneider Electric part flag
+godam,Stock,drum_no,INTEGER,INT,NO,NO,,YES,,Drum/Reel number
+godam,Stock,drum_qty,DOUBLE PRECISION,FLOAT,NO,NO,,YES,,Quantity per drum
+godam,Stock,display_text,VARCHAR(200),NVARCHAR(200),NO,NO,,YES,,Display text for UI
+godam,Stock,unit_length,DOUBLE PRECISION,FLOAT,NO,NO,,YES,,Unit length measurement
+godam,Stock,weight,DOUBLE PRECISION,FLOAT,NO,NO,,YES,,Item weight
+godam,Stock,size,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Size specification
+godam,Stock,qty_status,VARCHAR(20),VARCHAR(20),NO,NO,,YES,,Quantity status flag
+godam,Stock,qty_override_by,INTEGER,INT,NO,YES,Users(user_id),YES,,User who overrode quantity
+godam,Stock,qty_override_reason,TEXT,NVARCHAR(500),NO,NO,,YES,,Reason for qty override
+godam,Stock,remark,TEXT,NVARCHAR(500),NO,NO,,YES,,Additional remarks
+godam,Stock,qty,INTEGER,INT,NO,NO,,NO,0,Available quantity
+godam,Stock,uom,VARCHAR(20),VARCHAR(20),NO,NO,,NO,'EA',Unit of measure
+godam,Stock,rack,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Rack location
+godam,Stock,bin,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Bin location
+godam,Stock,combine_rack,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Combined rack identifier
+godam,Stock,serial_required,BOOLEAN,BIT,NO,NO,,NO,FALSE,Serial number required flag
+godam,Stock,received_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Receipt timestamp
+godam,Stock,warehouse_id,INTEGER,INT,NO,YES,Warehouses(warehouse_id),YES,,Warehouse FK by ID
+godam,Stock,updated_by,INTEGER,INT,NO,YES,Users(user_id),YES,,Last updated by user
+godam,Stock,deleted_by,INTEGER,INT,NO,YES,Users(user_id),YES,,Soft delete by user
+godam,Stock,deleted_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Soft delete timestamp
+godam,Stock,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,Stock,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,StockMovements,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Movement unique identifier
+godam,StockMovements,movement_type,VARCHAR(20),VARCHAR(20),NO,NO,,NO,,Movement type code
+godam,StockMovements,warehouse_no,VARCHAR(50),VARCHAR(50),NO,YES,Warehouses(warehouse_no),NO,,Warehouse reference
+godam,StockMovements,storage_location,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Storage location code
+godam,StockMovements,part_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Part number moved
+godam,StockMovements,qty_change,INTEGER,INT,NO,NO,,NO,,Quantity delta (+/-)
+godam,StockMovements,dn_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Delivery note number
+godam,StockMovements,invoice_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Invoice number
+godam,StockMovements,po_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Purchase order number
+godam,StockMovements,sales_order,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Sales order number
+godam,StockMovements,rack,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Rack location
+godam,StockMovements,bin,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Bin location
+godam,StockMovements,suggested_rack,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,System suggested rack
+godam,StockMovements,actual_rack,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Actual picked rack
+godam,StockMovements,picked_qty,INTEGER,INT,NO,NO,,YES,,Quantity picked
+godam,StockMovements,requested_qty,INTEGER,INT,NO,NO,,YES,,Quantity requested
+godam,StockMovements,override_flag,VARCHAR(3),VARCHAR(3),NO,NO,,YES,,Override flag (YES/NO)
+godam,StockMovements,override_reason,TEXT,NVARCHAR(400),NO,NO,,YES,,Reason for override
+godam,StockMovements,picker_id,INTEGER,INT,NO,NO,,YES,,Picker user ID
+godam,StockMovements,checker_id,INTEGER,INT,NO,NO,,YES,,Checker user ID
+godam,StockMovements,admin_id,INTEGER,INT,NO,NO,,YES,,Admin user ID
+godam,StockMovements,pick_time,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Picking timestamp
+godam,StockMovements,confirm_time,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Confirmation timestamp
+godam,StockMovements,post_time,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Posting timestamp
+godam,StockMovements,status,VARCHAR(20),VARCHAR(20),NO,NO,,YES,,Movement status
+godam,StockMovements,reference,VARCHAR(200),VARCHAR(200),NO,NO,,YES,,Reference information
+godam,StockMovements,remark,TEXT,NVARCHAR(400),NO,NO,,YES,,Additional remarks
+godam,StockMovements,created_by,INTEGER,INT,NO,YES,Users(user_id),YES,,Created by user
+godam,StockMovements,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,notifications,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Notification unique ID
+godam,notifications,type,VARCHAR(50),VARCHAR(50),NO,NO,,NO,,Notification type
+godam,notifications,order_id,INTEGER,INT,NO,NO,,YES,,Related order ID
+godam,notifications,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Outbound order number
+godam,notifications,recipient_user_id,INTEGER,INT,NO,NO,,YES,,Recipient user ID
+godam,notifications,message,TEXT,NVARCHAR(500),NO,NO,,NO,,Notification message text
+godam,notifications,is_read,BOOLEAN,BIT,NO,NO,,NO,FALSE,Read status flag
+godam,notifications,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Creation timestamp
+godam,chat_messages,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Chat message unique ID
+godam,chat_messages,sender_id,INTEGER,INT,NO,NO,,YES,,Sender user ID
+godam,chat_messages,sender_name,VARCHAR(120),VARCHAR(120),NO,NO,,NO,,Sender display name
+godam,chat_messages,message,TEXT,NVARCHAR(800),NO,NO,,NO,,Message content
+godam,chat_messages,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Message timestamp
+godam,stock_action_logs,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Action log unique ID
+godam,stock_action_logs,stock_id,INTEGER,INT,NO,YES,Stock(id),YES,,Related stock item
+godam,stock_action_logs,action_type,VARCHAR(30),VARCHAR(30),NO,NO,,NO,,Action type code
+godam,stock_action_logs,user_id,INTEGER,INT,NO,YES,Users(user_id),YES,,User who performed action
+godam,stock_action_logs,username,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Username snapshot
+godam,stock_action_logs,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Action timestamp
+godam,OrderWorkflows,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Order workflow unique ID
+godam,OrderWorkflows,order_file,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Order file name
+godam,OrderWorkflows,invoice_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Invoice number
+godam,OrderWorkflows,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Outbound order number (UNIQUE)
+godam,OrderWorkflows,gapp_po,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,GAPP purchase order
+godam,OrderWorkflows,customer_po,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Customer purchase order
+godam,OrderWorkflows,customer_name,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Customer name
+godam,OrderWorkflows,serial_required,BOOLEAN,BIT,NO,NO,,NO,FALSE,Serial numbers required flag
+godam,OrderWorkflows,serial_completed,BOOLEAN,BIT,NO,NO,,NO,FALSE,Serial entry completed flag
+godam,OrderWorkflows,picking_status,VARCHAR(20),VARCHAR(20),NO,NO,,NO,'PENDING',Picking workflow status
+godam,OrderWorkflows,checking_status,VARCHAR(20),VARCHAR(20),NO,NO,,NO,'PENDING',Checking workflow status
+godam,OrderWorkflows,dn_created,BOOLEAN,BIT,NO,NO,,NO,FALSE,**Delivery Note created flag** (FIXED)
+godam,OrderWorkflows,upload_status,VARCHAR(20),VARCHAR(20),NO,NO,,NO,'SENT',Upload status
+godam,OrderWorkflows,delivery_status,VARCHAR(30),VARCHAR(30),NO,NO,,NO,'UPLOADED',Delivery status
+godam,OrderWorkflows,loaded_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Loaded timestamp
+godam,OrderWorkflows,on_the_way_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,In-transit timestamp
+godam,OrderWorkflows,delivered_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Delivery completion timestamp
+godam,OrderWorkflows,closed_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Order closure timestamp
+godam,OrderWorkflows,delivery_item_image1,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,Delivery photo 1 URL
+godam,OrderWorkflows,delivery_item_image2,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,Delivery photo 2 URL
+godam,OrderWorkflows,delivery_note_image,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,DN photo URL
+godam,OrderWorkflows,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Order creation timestamp
+godam,OrderWorkflows,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,OrderAdminAudits,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Audit log unique ID
+godam,OrderAdminAudits,order_id,INTEGER,INT,NO,NO,,YES,,Related order ID
+godam,OrderAdminAudits,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Outbound order number
+godam,OrderAdminAudits,action,VARCHAR(20),VARCHAR(20),NO,NO,,NO,,Admin action type
+godam,OrderAdminAudits,performed_by,VARCHAR(255),VARCHAR(255),NO,NO,,YES,,User who performed action
+godam,OrderAdminAudits,reason,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Reason for action
+godam,OrderAdminAudits,details,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Action details JSON
+godam,OrderAdminAudits,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Audit timestamp
+godam,ai_activity_log,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,AI activity log ID
+godam,ai_activity_log,user,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,User who issued command
+godam,ai_activity_log,command,VARCHAR(500),VARCHAR(500),NO,NO,,YES,,AI command text
+godam,ai_activity_log,ai_intent,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Detected intent
+godam,ai_activity_log,ai_response,TEXT,NVARCHAR(MAX),NO,NO,,YES,,AI response text
+godam,ai_activity_log,executed_actions,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Actions executed JSON
+godam,ai_activity_log,result,VARCHAR(20),VARCHAR(20),NO,NO,,YES,,Execution result
+godam,ai_activity_log,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Command timestamp
+godam,Transporters,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Transporter unique ID
+godam,Transporters,company_name,VARCHAR(255),NVARCHAR(255),NO,NO,,NO,,Transporter company name
+godam,Transporters,contact_name,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Contact person name
+godam,Transporters,email,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Contact email
+godam,Transporters,is_active,BOOLEAN,BIT,NO,NO,,NO,TRUE,Active status flag
+godam,Transporters,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,Transporters,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,Drivers,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Driver unique ID
+godam,Drivers,driver_name,VARCHAR(255),NVARCHAR(255),NO,NO,,NO,,Driver full name
+godam,Drivers,driver_number,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Driver contact number
+godam,Drivers,id_number,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,National ID/Iqama number
+godam,Drivers,truck_no,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Truck registration number
+godam,Drivers,iqama_copy_path,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,Iqama document file path
+godam,Drivers,estimara_path,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,Estimara document path
+godam,Drivers,driving_license_path,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,License document path
+godam,Drivers,insurance_path,VARCHAR(500),NVARCHAR(500),NO,NO,,YES,,Insurance document path
+godam,Drivers,vehicle_images,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Vehicle photos JSON array
+godam,Drivers,iqama_expiry_date,DATE,DATE,NO,NO,,YES,,Iqama expiration date
+godam,Drivers,user_id,INTEGER,INT,NO,YES,Users(user_id),YES,,Linked user account
+godam,Drivers,is_active,BOOLEAN,BIT,NO,NO,,NO,TRUE,Active status flag
+godam,Drivers,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,Drivers,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,Customers,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Customer unique ID
+godam,Customers,name,VARCHAR(255),NVARCHAR(255),NO,NO,,NO,,Customer company name
+godam,Customers,city,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,City location
+godam,Customers,location_text,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Address text
+godam,Customers,google_location,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Google Maps link
+godam,Customers,receiver1_name,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Primary receiver name
+godam,Customers,receiver1_contact,VARCHAR(50),NVARCHAR(50),NO,NO,,YES,,Primary receiver phone
+godam,Customers,receiver1_email,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Primary receiver email
+godam,Customers,receiver1_designation,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Primary receiver job title
+godam,Customers,receiver2_name,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Secondary receiver name
+godam,Customers,receiver2_contact,VARCHAR(50),NVARCHAR(50),NO,NO,,YES,,Secondary receiver phone
+godam,Customers,receiver2_email,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Secondary receiver email
+godam,Customers,receiver2_designation,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Secondary receiver job title
+godam,Customers,requirements,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Special requirements text
+godam,Customers,notes,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Internal notes
+godam,Customers,is_active,BOOLEAN,BIT,NO,NO,,NO,TRUE,Active status flag
+godam,Customers,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,Customers,updated_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Last update timestamp
+godam,OrderTransport,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Transport record unique ID
+godam,OrderTransport,transporter_name,VARCHAR(255),NVARCHAR(255),NO,NO,,NO,,Transporter company name
+godam,OrderTransport,driver_name,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Assigned driver name
+godam,OrderTransport,driver_number,VARCHAR(100),NVARCHAR(100),NO,NO,,YES,,Driver contact number
+godam,OrderTransport,invoice_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Invoice number
+godam,OrderTransport,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Outbound order number
+godam,OrderTransport,from_location,VARCHAR(255),NVARCHAR(255),NO,NO,,NO,'Riyadh',Origin location
+godam,OrderTransport,to_location,VARCHAR(255),NVARCHAR(255),NO,NO,,YES,,Destination location
+godam,OrderTransport,vehicle_type,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Vehicle type/size
+godam,OrderTransport,quantity,INTEGER,INT,NO,NO,,YES,,Total quantity
+godam,OrderTransport,remarks,TEXT,NVARCHAR(MAX),NO,NO,,YES,,Transport remarks
+godam,OrderTransport,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,OrderTransport,created_by,INTEGER,INT,NO,YES,Users(user_id),YES,,Created by user
+godam,OrderTransport,order_id,INTEGER,INT,NO,YES,OrderWorkflows(id),NO,,Related order FK
+godam,OrderTransport,transporter_id,INTEGER,INT,NO,YES,Transporters(id),YES,,Transporter FK
+godam,OrderTransport,driver_id,INTEGER,INT,NO,YES,Drivers(id),YES,,Driver FK
+godam,OrderSerials,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Serial number entry ID
+godam,OrderSerials,order_id,INTEGER,INT,NO,YES,OrderWorkflows(id),NO,,Related order FK
+godam,OrderSerials,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Outbound order number
+godam,OrderSerials,serial_number,VARCHAR(200),VARCHAR(200),NO,NO,,NO,,Serial number value
+godam,OrderSerials,entered_by,INTEGER,INT,NO,YES,Users(user_id),YES,,User who entered serial
+godam,OrderSerials,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Entry timestamp
+godam,OrderItems,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Order item unique ID
+godam,OrderItems,order_id,INTEGER,INT,NO,YES,OrderWorkflows(id),NO,,Related order FK
+godam,OrderItems,part_number,VARCHAR(100),VARCHAR(100),NO,NO,,NO,,Part number ordered
+godam,OrderItems,description,VARCHAR(255),VARCHAR(255),NO,NO,,YES,,Part description
+godam,OrderItems,qty,INTEGER,INT,NO,NO,,NO,,Quantity ordered
+godam,OrderItems,picked_by,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Picker username
+godam,OrderItems,picked_at,TIMESTAMPTZ,DATETIME2,NO,NO,,YES,,Picking timestamp
+godam,OrderItems,picked_rack,VARCHAR(50),VARCHAR(50),NO,NO,,YES,,Picked from rack
+godam,OrderItems,is_picked,BOOLEAN,BIT,NO,NO,,NO,FALSE,Picked status flag
+godam,OrderItems,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Record creation timestamp
+godam,Notifications,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Notification unique ID
+godam,Notifications,type,VARCHAR(50),VARCHAR(50),NO,NO,,NO,,Notification type
+godam,Notifications,order_id,INTEGER,INT,NO,YES,OrderWorkflows(id),YES,,Related order FK
+godam,Notifications,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Outbound order number
+godam,Notifications,message,TEXT,NVARCHAR(MAX),NO,NO,,NO,,Notification message
+godam,Notifications,is_read,BOOLEAN,BIT,NO,NO,,NO,FALSE,Read status flag
+godam,Notifications,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Notification timestamp
+godam,OrderFiles,id,SERIAL,INTEGER IDENTITY,YES,NO,,NO,,Order file unique ID
+godam,OrderFiles,file_name,VARCHAR(255),VARCHAR(255),NO,NO,,NO,,Original file name
+godam,OrderFiles,file_path,VARCHAR(500),VARCHAR(500),NO,NO,,NO,,Stored file path
+godam,OrderFiles,outbound_number,VARCHAR(100),VARCHAR(100),NO,NO,,YES,,Related outbound number
+godam,OrderFiles,created_at,TIMESTAMPTZ,DATETIME2,NO,NO,,NO,now(),Upload timestamp
+godam,OrderFiles,created_by,INTEGER,INT,NO,YES,Users(user_id),YES,,Uploaded by user

@@ -1,6 +1,4 @@
-import {
-  type ChangeEvent,
-  type KeyboardEvent,
+import React, {
   useEffect,
   useMemo,
   useRef,
@@ -8,7 +6,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
-import DNPreview from "../components/DNPreview";
+import DeliveryNotePrint, { type DeliveryNotePrintData } from "../components/DeliveryNotePrint";
 import PrintPreviewModal from "../components/PrintPreviewModal";
 
 type OrderSummaryDto = {
@@ -17,17 +15,23 @@ type OrderSummaryDto = {
   outboundNumber: string;
   gappPo: string | null;
   customerPo: string | null;
+  customerId?: string | null;
   customerName: string | null;
   dnCreated: boolean;
+  pickingStatus?: string | null;
+  checkingStatus?: string | null;
 };
 
 type OutboundInfoDto = {
   orderId: number;
   outboundNumber: string;
   customerName: string;
+  customerId: string | null;
   gappPo: string | null;
   customerPo: string | null;
   itemNumbers: string[];
+  transporterId?: number | null;
+  driverId?: number | null;
 };
 
 type CustomerLookupDto = {
@@ -36,12 +40,25 @@ type CustomerLookupDto = {
   city: string | null;
   locationText: string | null;
   googleLocation: string | null;
+  sapCustomerId: string | null;
   receiver1Contact: string | null;
   receiver2Contact: string | null;
   receiver1Name: string | null;
   receiver2Name: string | null;
-  email: string | null;
+  receiver1Email: string | null;
+  receiver2Email: string | null;
   requirements: string | null;
+};
+
+type OrderItemDto = {
+  partNumber: string;
+  description: string | null;
+  qty: number;
+};
+
+type OrderViewDto = {
+  summary: OrderSummaryDto;
+  items: OrderItemDto[];
 };
 
 type TransporterDto = {
@@ -80,6 +97,10 @@ type LocationType = (typeof locationTypes)[number];
 
 type DeliveryNoteFormState = {
   dnNumber: string;
+  dnDate: string;
+  invoiceNumber: string;
+  customerPo: string;
+  gappPo: string;
   outboundNumber: string;
   customerId: string;
   customerName: string;
@@ -101,27 +122,87 @@ type DeliveryNoteFormState = {
   allowOutboundEdit: boolean;
   driverIdNumber: string;
 };
-const MAX_ROWS = 9;
-const PRINT_PREVIEW_STORAGE_KEY = "godam-print-dn-preview";
+
+type LocationFormState = {
+  customerLocationType: LocationType;
+  customerLocationText: string;
+  address: string;
+  googleMapLink: string;
+  customerEmail: string;
+  receiver1Name: string;
+  phone1: string;
+  receiver2Name: string;
+  phone2: string;
+};
+
+const generateDnNumber = () => {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
+  return `DN-${datePart}-${suffix}`;
+};
+
+const resolvePreparedByName = () => {
+  if (typeof window === "undefined") {
+    return "GoDam User";
+  }
+  const stored = localStorage.getItem("godam_user");
+  if (!stored) {
+    return "GoDam User";
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    return parsed?.username ?? parsed?.name ?? "GoDam User";
+  } catch {
+    return "GoDam User";
+  }
+};
 
 const DeliveryNotes = () => {
   const [orders, setOrders] = useState<OrderSummaryDto[]>([]);
   const [searchParams] = useSearchParams();
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [outboundInfo, setOutboundInfo] = useState<OutboundInfoDto | null>(null);
+  const [fieldsLocked, setFieldsLocked] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerSuggestions, setCustomerSuggestions] = useState<CustomerLookupDto[]>([]);
   const [customerFocus, setCustomerFocus] = useState(-1);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerLookupDto | null>(null);
-  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [locationOptions, setLocationOptions] = useState<CustomerLookupDto[]>([]);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+  const [showMissingCustomerMasterModal, setShowMissingCustomerMasterModal] = useState(false);
+  const [missingCustomerSapId, setMissingCustomerSapId] = useState<string | null>(null);
+  const [locationForm, setLocationForm] = useState<LocationFormState>({
+    customerLocationType: locationTypes[0],
+    customerLocationText: "",
+    address: "",
+    googleMapLink: "",
+    customerEmail: "",
+    receiver1Name: "",
+    phone1: "",
+    receiver2Name: "",
+    phone2: "",
+  });
   const [transporters, setTransporters] = useState<TransporterDto[]>([]);
   const [drivers, setDrivers] = useState<DriverDto[]>([]);
   const [qtyRows, setQtyRows] = useState<QuantityRow[]>([{ description: "", quantity: "" }]);
-  const [isEditing, setIsEditing] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedNoteId, setSavedNoteId] = useState<number | null>(null);
+  const [dnStatus, setDnStatus] = useState<string | null>(null);
+  const isFinalized = dnStatus === "FINAL" || dnStatus === "COMPLETE";
+  // Fields are editable if: editing mode is ON AND fields are not locked AND not finalized
+  // Exception: DN Date and Requirements are always editable (unless finalized)
+  const canEditFields = isEditing && !fieldsLocked && !isFinalized;
+  // Header fields (Invoice, Outbound, DN Number, DN Date) are always editable unless finalized
+  const canEditHeader = !isFinalized;
+  // DN Date and Requirements are always editable (unless finalized)
+  const canEditDateAndRemarks = !isFinalized;
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailForm, setEmailForm] = useState({
@@ -130,7 +211,6 @@ const DeliveryNotes = () => {
     message: "",
   });
   const [emailSending, setEmailSending] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showTransporterModal, setShowTransporterModal] = useState(false);
@@ -146,9 +226,15 @@ const DeliveryNotes = () => {
     email: "",
   });
   const customerDebounce = useRef<number | null>(null);
+  const customerIdLookupDebounce = useRef<number | null>(null);
+  const [loadingCustomerById, setLoadingCustomerById] = useState(false);
 
   const [formState, setFormState] = useState<DeliveryNoteFormState>({
-    dnNumber: "",
+    dnNumber: generateDnNumber(),
+    dnDate: new Date().toISOString(),
+    invoiceNumber: "",
+    customerPo: "",
+    gappPo: "",
     outboundNumber: "",
     customerId: "",
     customerName: "",
@@ -181,102 +267,119 @@ const DeliveryNotes = () => {
     [transporters, formState.transporterId]
   );
 
-  const previewQuantities = useMemo(
-    () =>
-      qtyRows
-        .filter((row) => row.description.trim() && Number(row.quantity) > 0)
-        .map((row) => ({
-          description: row.description.trim(),
+
+
+
+  // Build print data from current form state
+  const buildPrintData = (): DeliveryNotePrintData => {
+    const items = qtyRows
+      .filter((row) => row.description.trim() && Number(row.quantity) > 0)
+      .map((row, index) => {
+        const parts = row.description.split(" - ");
+        return {
+          itemNumber: index + 1,
+          partNumber: parts.length > 1 ? parts[0] : "",
+          description: parts.length > 1 ? parts.slice(1).join(" - ") : row.description,
           quantity: Number(row.quantity),
-        })),
-    [qtyRows]
-  );
+          uom: "PCS",
+        };
+      });
 
-  const previewProps = {
-    dnNumber: formState.dnNumber,
-    outboundNumber: formState.outboundNumber,
-    customerName: formState.customerName,
-    address: formState.address,
-    requirements: formState.requirements,
-    googleMapLink: formState.googleMapLink,
-    phone1: formState.phone1,
-    phone2: formState.phone2,
-    receiver1Name: formState.receiver1Name,
-    receiver2Name: formState.receiver2Name,
-    customerEmail: formState.customerEmail,
-    customerLocationType: formState.customerLocationType,
-    customerLocationDetail: formState.customerLocationText,
-    transporterName: selectedTransporter?.companyName,
-    transporterContact: selectedTransporter?.contactName,
-    driverName: formState.driverName,
-    driverNumber: formState.driverNumber,
-    truckType: formState.truckType,
-    quantities: previewQuantities,
+    return {
+      dnNumber: formState.dnNumber || undefined,
+      outboundNumber: formState.outboundNumber || undefined,
+      dnDate: formState.dnDate || new Date().toISOString(),
+      invoiceNumber: formState.invoiceNumber || undefined,
+      customerPo: formState.customerPo || outboundInfo?.customerPo || undefined,
+      gappPo: formState.gappPo || outboundInfo?.gappPo || undefined,
+      customerName: formState.customerName || undefined,
+      address: formState.address || undefined,
+      phone1: formState.phone1 || undefined,
+      phone2: formState.phone2 || undefined,
+      receiver1Name: formState.receiver1Name || undefined,
+      receiver2Name: formState.receiver2Name || undefined,
+      customerEmail: formState.customerEmail || undefined,
+      googleMapLink: formState.googleMapLink || undefined,
+      requirements: formState.requirements || undefined,
+      warehouseName: "Main Warehouse",
+      warehouseAddress: "Warehouse Address",
+      transporterName: selectedTransporter?.companyName || undefined,
+      driverName: formState.driverName || undefined,
+      driverNumber: formState.driverNumber || undefined,
+      truckType: formState.truckType || undefined,
+      items,
+      verifierName: resolvePreparedByName(),
+      preparedBy: resolvePreparedByName(),
+    };
   };
 
-  const buildPrintPreviewPayload = () => ({
-    id: savedNoteId ?? undefined,
-    dnNumber: formState.dnNumber || "DN-TBD",
-    outboundNumber: formState.outboundNumber || "TBD",
-    dateCreated: new Date().toISOString(),
-    customer: {
-      name: formState.customerName || "Customer name",
-      address: formState.address || "Enter customer address",
-      city: formState.customerLocationText || "",
-      locationText: formState.customerLocationText || "",
-      googleLocation: formState.googleMapLink || "",
-      receiver1Contact: formState.phone1 || "",
-      receiver2Contact: formState.phone2 || "",
-      receiver1Name: formState.receiver1Name || "",
-      receiver2Name: formState.receiver2Name || "",
-      email: formState.customerEmail || "",
-      requirements: formState.requirements || "",
-    },
-    transporter: {
-      companyName: selectedTransporter?.companyName || "Select transporter",
-      contactName: selectedTransporter?.contactName || "",
-    },
-    driver: {
-      driverName: formState.driverName || "Driver name",
-      driverNumber: formState.driverNumber || "Driver number",
-    },
-    truckType: formState.truckType,
-    quantities: previewQuantities,
-    status: savedNoteId ? "Saved" : "Preview",
-  });
+  // Handle Print - opens browser print dialog
+  const handlePrint = () => {
+    // Create a hidden print container
+    const printContainer = document.createElement("div");
+    printContainer.id = "dn-print-temp-container";
+    printContainer.style.position = "absolute";
+    printContainer.style.left = "-9999px";
+    printContainer.style.top = "0";
+    printContainer.style.width = "210mm";
+    document.body.appendChild(printContainer);
 
-  const persistPrintPreview = () => {
-    try {
-      sessionStorage.setItem(
-        PRINT_PREVIEW_STORAGE_KEY,
-        JSON.stringify(buildPrintPreviewPayload())
+    // Render the printable component
+    import("react-dom/client").then(({ createRoot }) => {
+      const root = createRoot(printContainer);
+      root.render(
+        React.createElement(DeliveryNotePrint, { data: buildPrintData() })
       );
-    } catch (storageError) {
-      console.error("Unable to cache print preview data", storageError);
-    }
+
+      setTimeout(() => {
+        // Add print styles to hide everything except print container
+        const printStyle = document.createElement("style");
+        printStyle.id = "dn-print-style";
+        printStyle.textContent = `
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            #dn-print-temp-container,
+            #dn-print-temp-container * {
+              visibility: visible;
+            }
+            #dn-print-temp-container {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+            }
+          }
+        `;
+        document.head.appendChild(printStyle);
+
+        // Trigger print
+        window.print();
+
+        // Clean up after print
+        setTimeout(() => {
+          document.body.removeChild(printContainer);
+          const styleEl = document.getElementById("dn-print-style");
+          if (styleEl) {
+            document.head.removeChild(styleEl);
+          }
+        }, 1000);
+      }, 100);
+    });
   };
 
-  const openPrintPreview = () => {
-    setError(null);
-    setMessage(null);
-    persistPrintPreview();
-    // Open the dedicated print page in a new window
-    if (savedNoteId) {
-      window.open(`/print-dn?id=${savedNoteId}`, "_blank");
-    } else {
-      window.open("/print-dn", "_blank");
-    }
+  // Handle Preview - opens modal with printable component
+  const handlePreview = () => {
+    setIsPrintPreviewOpen(true);
   };
 
+  // Handle modal print
   const handleModalPrint = () => {
-    // Open the print page in a new window
-    persistPrintPreview();
-    if (savedNoteId) {
-      window.open(`/print-dn?id=${savedNoteId}`, "_blank");
-    } else {
-      window.open("/print-dn", "_blank");
-    }
     setIsPrintPreviewOpen(false);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
   };
 
   const whatsappUrl = (value: string) => {
@@ -284,21 +387,44 @@ const DeliveryNotes = () => {
     return digits ? `https://wa.me/${digits}` : undefined;
   };
 
-  const handleOrderChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleOutboundChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const orderId = Number(event.target.value);
-    setSelectedCustomer(null);
-    setSavedNoteId(null);
-    setEmailStatus(null);
-    setEmailError(null);
-    setMessage(null);
-    setError(null);
-    setSelectedOrderId(orderId || null);
+    if (!orderId) {
+      setSelectedOrderId(null);
+      setOutboundInfo(null);
+      setSelectedCustomer(null);
+      setFieldsLocked(false);
+      setFormState((prev) => ({
+        ...prev,
+        outboundNumber: "",
+        invoiceNumber: "",
+        customerId: "",
+        customerName: "",
+        customerPo: "",
+        gappPo: "",
+      }));
+      setQtyRows([{ description: "", quantity: "" }]);
+      return;
+    }
+
+    setSelectedOrderId(orderId);
+    setFieldsLocked(false); // Keep fields editable
+    setIsEditing(true); // Enable edit mode
   };
 
   const loadOrders = async () => {
     try {
+      // Load orders that are ready to ship: picked = true OR checked = true
+      // Interpreted as: pickingStatus = COMPLETED OR checkingStatus = CONFIRMED
       const response = await api.get<OrderSummaryDto[]>("/orders?dnCreated=false");
-      setOrders(response.data ?? []);
+      // Filter: picked (pickingStatus = COMPLETED) OR checked (checkingStatus = CONFIRMED)
+      const filtered = (response.data ?? []).filter(
+        (order) =>
+          !order.dnCreated &&
+          (order.pickingStatus?.toUpperCase() === "COMPLETED" ||
+            order.checkingStatus?.toUpperCase() === "CONFIRMED")
+      );
+      setOrders(filtered);
     } catch (e) {
       console.error(e);
       setError("Unable to load outbound orders.");
@@ -307,7 +433,7 @@ const DeliveryNotes = () => {
 
   const loadTransporters = async () => {
     try {
-      const response = await api.get<TransporterDto[]>("/api/transporter");
+      const response = await api.get<TransporterDto[]>("/transporter");
       setTransporters(response.data ?? []);
     } catch (e) {
       console.error(e);
@@ -316,7 +442,7 @@ const DeliveryNotes = () => {
 
   const loadDrivers = async () => {
     try {
-      const response = await api.get<DriverDto[]>("/api/driver");
+      const response = await api.get<DriverDto[]>("/driver");
       setDrivers(response.data ?? []);
     } catch (e) {
       console.error(e);
@@ -327,6 +453,15 @@ const DeliveryNotes = () => {
     loadOrders();
     loadTransporters();
     loadDrivers();
+  }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (customerIdLookupDebounce.current) {
+        window.clearTimeout(customerIdLookupDebounce.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -341,27 +476,180 @@ const DeliveryNotes = () => {
 
   useEffect(() => {
     if (!selectedOrderId) {
-      setOutboundInfo(null);
-      setFormState((prev) => ({ ...prev, outboundNumber: "", dnNumber: "", allowOutboundEdit: false }));
       return;
     }
     const fetchOutbound = async () => {
       try {
-        const response = await api.get<OutboundInfoDto>(`/api/outbound/${selectedOrderId}`);
-        setOutboundInfo(response.data);
+        // Get full order data including items and transport
+        const orderViewResponse = await api.get<OrderViewDto>(`/orders/${selectedOrderId}`);
+        const orderSummary = orderViewResponse.data?.summary;
+        const orderItems = orderViewResponse.data?.items ?? [];
+        
+        if (!orderSummary) {
+          setError("Order not found.");
+          return;
+        }
+
+        // Get outbound info for customer data
+        const outboundResponse = await api.get<OutboundInfoDto>(`/outbound/${selectedOrderId}`);
+        setOutboundInfo(outboundResponse.data);
+        setError(null);
+        
+        // Auto-fill basic fields from order (but NOT customer name yet - will be set from customer table)
         setFormState((prev) => ({
           ...prev,
-          outboundNumber: response.data.outboundNumber ?? prev.outboundNumber,
-          customerName: response.data.customerName ?? prev.customerName,
+          outboundNumber: orderSummary.outboundNumber ?? prev.outboundNumber,
+          invoiceNumber: orderSummary.invoiceNumber ?? prev.invoiceNumber,
+          customerPo: orderSummary.customerPo ?? prev.customerPo,
+          gappPo: orderSummary.gappPo ?? prev.gappPo,
+          // Map customer_id to Customer ID field only
+          customerId: orderSummary.customerId ?? prev.customerId,
+          // DO NOT set customerName here - it might contain customer_id
+          // Customer name will be set from customer table lookup below
         }));
-        setCustomerQuery(response.data.customerName ?? "");
+
+        // Load customer details and auto-fill customer fields using outbound response
+        // Order.customer_id should match Customer.sap_customer_id
+        if (outboundResponse.data.customerId) {
+          try {
+            // First try direct lookup by SAP Customer ID (exact match)
+            try {
+              const customer = await api.get<CustomerLookupDto>(
+                `/customer/by-sap-id/${encodeURIComponent(outboundResponse.data.customerId)}`
+              );
+              if (customer.data) {
+                applyCustomer(customer.data);
+                setFieldsLocked(false); // Keep fields editable
+                return; // Successfully loaded customer
+              }
+            } catch (directLookupError: unknown) {
+              // If direct lookup fails (404), try search as fallback
+              if ((directLookupError as { response?: { status?: number } })?.response?.status === 404) {
+                console.log(`Customer not found by SAP ID: ${outboundResponse.data.customerId}, trying search...`);
+                // Fall through to search
+              } else {
+                throw directLookupError; // Re-throw if it's a different error
+              }
+            }
+
+            // Fallback: Try search if direct lookup didn't work
+            const customerResponse = await api.get<CustomerLookupDto[]>(
+              `/customer/search?q=${encodeURIComponent(outboundResponse.data.customerId)}`
+            );
+            const customer = customerResponse.data?.find(
+              (c) => c.sapCustomerId?.toLowerCase() === outboundResponse.data.customerId?.toLowerCase()
+            );
+            if (customer) {
+              applyCustomer(customer);
+              setFieldsLocked(false); // Keep fields editable
+            } else {
+              // Customer master not found - show popup
+              setMissingCustomerSapId(outboundResponse.data.customerId);
+              setShowMissingCustomerMasterModal(true);
+              // Still populate basic fields from order
+              // Only use orderSummary.customerName if it doesn't look like a customer_id (all digits)
+              const potentialCustomerName = orderSummary.customerName;
+              const isCustomerIdPattern = /^\d+$/.test(potentialCustomerName || "");
+              setFormState((prev) => ({
+                ...prev,
+                customerId: outboundResponse.data.customerId || "",
+                // Only use customerName if it's not a customer_id pattern
+                customerName: (!isCustomerIdPattern && potentialCustomerName) ? potentialCustomerName : prev.customerName,
+              }));
+              setFieldsLocked(false); // Keep fields editable
+            }
+          } catch (e: unknown) {
+            // If 404 or customer not found, show popup
+            const errorResponse = (e as { response?: { status?: number } } | null)?.response;
+            if (errorResponse?.status === 404 || errorResponse?.status === 400) {
+              setMissingCustomerSapId(outboundResponse.data.customerId);
+              setShowMissingCustomerMasterModal(true);
+              // Still populate basic fields from order
+              // Only use orderSummary.customerName if it doesn't look like a customer_id (all digits)
+              const potentialCustomerName = orderSummary.customerName;
+              const isCustomerIdPattern = /^\d+$/.test(potentialCustomerName || "");
+              setFormState((prev) => ({
+                ...prev,
+                customerId: outboundResponse.data.customerId || "",
+                // Only use customerName if it's not a customer_id pattern
+                customerName: (!isCustomerIdPattern && potentialCustomerName) ? potentialCustomerName : prev.customerName,
+              }));
+              setFieldsLocked(false); // Keep fields editable
+            } else {
+              console.error("Failed to load customer details", e);
+              // Show popup even on other errors
+              setMissingCustomerSapId(outboundResponse.data.customerId);
+              setShowMissingCustomerMasterModal(true);
+              // Still populate basic fields from order
+              // Only use orderSummary.customerName if it doesn't look like a customer_id (all digits)
+              const potentialCustomerName = orderSummary.customerName;
+              const isCustomerIdPattern = /^\d+$/.test(potentialCustomerName || "");
+              setFormState((prev) => ({
+                ...prev,
+                customerId: outboundResponse.data.customerId || "",
+                // Only use customerName if it's not a customer_id pattern
+                customerName: (!isCustomerIdPattern && potentialCustomerName) ? potentialCustomerName : prev.customerName,
+              }));
+              setFieldsLocked(false); // Keep fields editable
+            }
+          }
+        } else {
+          // No customer ID in order - that's okay, customer was optional
+          // Only use orderSummary.customerName if it doesn't look like a customer_id (all digits)
+          const potentialCustomerName = orderSummary.customerName;
+          const isCustomerIdPattern = /^\d+$/.test(potentialCustomerName || "");
+          setFormState((prev) => ({
+            ...prev,
+            customerId: "",
+            // Only use customerName if it's not a customer_id pattern
+            customerName: (!isCustomerIdPattern && potentialCustomerName) ? potentialCustomerName : prev.customerName,
+          }));
+          setFieldsLocked(false); // Keep fields editable
+        }
+
+        // Auto-fill transporter and driver from order transport
+        if (outboundResponse.data.transporterId != null) {
+          updateForm({ transporterId: String(outboundResponse.data.transporterId) });
+        }
+        if (outboundResponse.data.driverId != null) {
+          // Find driver in the loaded drivers list
+          const driver = drivers.find((d) => d.id === outboundResponse.data.driverId);
+          if (driver) {
+            updateForm({
+              driverId: String(driver.id),
+              driverName: driver.driverName,
+              driverNumber: driver.driverNumber,
+              driverIdNumber: driver.idNumber ?? "",
+              truckType: driver.truckNo ?? formState.truckType,
+            });
+          } else {
+            // Driver ID exists but not in loaded list, just set the ID
+            updateForm({ driverId: String(outboundResponse.data.driverId) });
+          }
+        }
+        
+        // Auto-fill items from order_items (editable)
+        if (orderItems.length > 0) {
+          setQtyRows(
+            orderItems.map((item) => ({
+              description: item.description
+                ? `${item.partNumber ?? ""} - ${item.description}`
+                : item.partNumber ?? "",
+              quantity: item.qty != null ? String(item.qty) : "",
+            }))
+          );
+        } else {
+          setQtyRows([]);
+        }
       } catch (e) {
         console.error(e);
         setError("Unable to resolve outbound details.");
       }
     };
     fetchOutbound();
-  }, [selectedOrderId]);
+  }, [selectedOrderId, orders]);
+
+  // Items are now loaded in the fetchOutbound effect above
 
   useEffect(() => {
     if (!customerQuery.trim()) {
@@ -375,7 +663,7 @@ const DeliveryNotes = () => {
     }
     customerDebounce.current = window.setTimeout(async () => {
       try {
-        const response = await api.get<CustomerLookupDto[]>(`/api/customer/search?q=${encodeURIComponent(term)}`);
+        const response = await api.get<CustomerLookupDto[]>(`/customer/search?q=${encodeURIComponent(term)}`);
         setCustomerSuggestions(response.data ?? []);
       } catch (e) {
         console.error(e);
@@ -391,120 +679,159 @@ const DeliveryNotes = () => {
   useEffect(() => {
     if (
       outboundInfo &&
-      outboundInfo.customerName &&
+      outboundInfo.customerId &&
       !selectedCustomer &&
       customerSuggestions.length > 0
     ) {
-      const match = customerSuggestions.find(
+      const matches = customerSuggestions.filter(
         (customer) =>
-          customer.name && customer.name.toLowerCase() === outboundInfo.customerName.toLowerCase()
+          customer.sapCustomerId &&
+          customer.sapCustomerId.toLowerCase() === outboundInfo.customerId?.toLowerCase()
       );
-      if (match) {
-        applyCustomer(match);
+      if (matches.length === 1) {
+        applyCustomer(matches[0]);
+      } else if (matches.length > 1) {
+        setLocationOptions(matches);
+        setShowLocationModal(true);
       }
     }
   }, [customerSuggestions, outboundInfo, selectedCustomer]);
 
-  const applyCustomer = (customer: CustomerLookupDto) => {
+  const applyCustomer = (customer: CustomerLookupDto, lockFields = false) => {
     setSelectedCustomer(customer);
-    setCustomerQuery(customer.name ?? "");
+    setCustomerQuery(customer.name ?? customer.sapCustomerId ?? "");
     setCustomerSuggestions([]);
-    setFormState((prev) => ({
-      ...prev,
-      customerId: customer.id ? String(customer.id) : prev.customerId,
-      customerName: customer.name ?? prev.customerName,
-      customerLocationText: customer.locationText ?? prev.customerLocationText,
-      address: customer.city ?? prev.address,
-      googleMapLink: customer.googleLocation ?? prev.googleMapLink,
-      phone1: customer.receiver1Contact ?? prev.phone1,
-      phone2: customer.receiver2Contact ?? prev.phone2,
-      receiver1Name: customer.receiver1Name ?? prev.receiver1Name,
-      receiver2Name: customer.receiver2Name ?? prev.receiver2Name,
-      customerEmail: customer.email ?? prev.customerEmail,
-      requirements: customer.requirements ?? prev.requirements,
-    }));
+    
+    setFormState((prev) => {
+      // Location Details priority: locationText -> city -> address
+      const locationDetails = customer.locationText 
+        || (customer.city ? customer.city : "")
+        || prev.address
+        || "";
+      
+      return {
+        ...prev,
+        // Map customer_id (SAP Customer ID) to Customer ID field only - DO NOT put in Customer Name
+        customerId: customer.sapCustomerId ?? prev.customerId,
+        // Map customer name to Customer Name field only - DO NOT put customer_id here
+        customerName: customer.name ?? prev.customerName,
+        // Location Details: locationText -> city -> address (priority order)
+        customerLocationText: locationDetails,
+        // Address: use locationText if available, else city, else keep existing
+        address: customer.locationText || customer.city || prev.address,
+        googleMapLink: customer.googleLocation ?? prev.googleMapLink,
+        phone1: customer.receiver1Contact ?? prev.phone1,
+        phone2: customer.receiver2Contact ?? prev.phone2,
+        receiver1Name: customer.receiver1Name ?? prev.receiver1Name,
+        receiver2Name: customer.receiver2Name ?? prev.receiver2Name,
+        customerEmail: customer.receiver1Email ?? prev.customerEmail,
+        requirements: customer.requirements ?? prev.requirements,
+      };
+    });
+    // Lock fields if requested (when auto-filled from Customer ID lookup)
+    if (lockFields) {
+      setFieldsLocked(true);
+    } else {
+      setFieldsLocked(false); // Keep fields editable
+    }
   };
 
-  const handleCustomerKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!customerSuggestions.length) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setCustomerFocus((prev) =>
-        prev >= customerSuggestions.length - 1 ? 0 : prev + 1
-      );
+  // Handle Customer ID change/blur - auto-fetch customer from Customer table
+  const handleCustomerIdChange = async (customerId: string) => {
+    // Clear any previous debounce
+    if (customerIdLookupDebounce.current) {
+      window.clearTimeout(customerIdLookupDebounce.current);
+      customerIdLookupDebounce.current = null;
+    }
+
+    // If empty, clear customer data
+    if (!customerId || customerId.trim() === "") {
+      setSelectedCustomer(null);
+      setShowMissingCustomerMasterModal(false);
+      setMissingCustomerSapId(null);
       return;
     }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setCustomerFocus((prev) =>
-        prev <= 0 ? customerSuggestions.length - 1 : prev - 1
-      );
-      return;
-    }
-    if (event.key === "Enter" && customerFocus >= 0) {
-      event.preventDefault();
-      applyCustomer(customerSuggestions[customerFocus]);
-    }
+
+    const trimmedCustomerId = customerId.trim();
+
+    // Debounce the lookup
+    customerIdLookupDebounce.current = window.setTimeout(async () => {
+      setLoadingCustomerById(true);
+      try {
+        // Fetch customer by SAP Customer ID
+        const customer = await api.get<CustomerLookupDto>(
+          `/customer/by-sap-id/${encodeURIComponent(trimmedCustomerId)}`
+        );
+        
+        if (customer.data) {
+          // Auto-fill all fields and lock them
+          applyCustomer(customer.data, true);
+          setShowMissingCustomerMasterModal(false);
+          setMissingCustomerSapId(null);
+        } else {
+          // Customer not found
+          setMissingCustomerSapId(trimmedCustomerId);
+          setShowMissingCustomerMasterModal(true);
+          setSelectedCustomer(null);
+        }
+      } catch (error: unknown) {
+        const errorResponse = (error as { response?: { status?: number } } | null)?.response;
+        if (errorResponse?.status === 404) {
+          // Customer not found - show popup
+          setMissingCustomerSapId(trimmedCustomerId);
+          setShowMissingCustomerMasterModal(true);
+          setSelectedCustomer(null);
+        } else {
+          console.error("Failed to load customer by ID", error);
+          setError("Failed to load customer. Please try again.");
+        }
+      } finally {
+        setLoadingCustomerById(false);
+      }
+    }, 500); // 500ms debounce
   };
+
 
   const updateForm = (payload: Partial<DeliveryNoteFormState>) => {
     setFormState((prev) => ({ ...prev, ...payload }));
   };
 
-  const handleSaveCustomer = async () => {
-    if (savingCustomer) return;
-    const name = formState.customerName.trim();
-    if (!name) {
-      setError("Enter a customer name before saving.");
-      return;
-    }
-    setSavingCustomer(true);
-    setError(null);
-    try {
-      const response = await api.post<CustomerLookupDto>("/api/customer", {
-        name,
-        city: formState.address,
-        locationText: formState.customerLocationText || formState.address,
-        googleLocation: formState.googleMapLink,
-        receiver1Contact: formState.phone1,
-        receiver2Contact: formState.phone2,
-        receiver1Name: formState.receiver1Name,
-        receiver2Name: formState.receiver2Name,
-        email: formState.customerEmail,
-        requirements: formState.requirements,
-      });
-      applyCustomer(response.data);
-      setCustomerQuery(response.data.name ?? name);
-      setMessage("Customer saved to master data.");
-    } catch (e) {
-      console.error(e);
-      setError("Unable to save customer details.");
-    } finally {
-      setSavingCustomer(false);
-    }
-  };
 
   const isValidQuantity = () => qtyRows.some((row) => row.description.trim() && Number(row.quantity) > 0);
 
+  const hasLocation = Boolean(
+    formState.customerLocationText.trim() || formState.address.trim()
+  );
+  // Customer is validated at order upload time, so if order exists, customer should be valid
+  // Allow save if: customer is selected OR customer data exists from order
+  const hasValidCustomer = Boolean(
+    selectedCustomer || // Customer loaded from Customers table
+    (formState.customerId && formState.customerName) // Customer data from order (already validated at upload)
+  );
+  
   const canSave = Boolean(
-    selectedCustomer &&
+    hasValidCustomer &&
+      formState.invoiceNumber.trim() &&
       formState.transporterId &&
-      formState.driverName.trim() &&
-      formState.driverNumber.trim() &&
-      isValidQuantity()
+      formState.driverId &&
+      isValidQuantity() &&
+      hasLocation
   );
 
-  const handleSave = async () => {
-    if (!canSave) {
-      setError("Customer, driver, transporter and at least one quantity are required.");
-      return;
-    }
+  const executeSave = async (status: "COMPLETE" | "INCOMPLETE") => {
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      const response = await api.post<DeliveryNoteResponse>("/api/delivery-note", {
+      const preparedBy = resolvePreparedByName();
+      const payload = {
+        orderId: selectedOrderId,
         dnNumber: formState.dnNumber,
+        dnDate: formState.dnDate || new Date().toISOString(),
+        invoiceNumber: formState.invoiceNumber.trim(),
+        customerPo: formState.customerPo || outboundInfo?.customerPo,
+        gappPo: formState.gappPo || outboundInfo?.gappPo,
+        preparedBy,
         outboundNumber: formState.outboundNumber,
         customerId: selectedCustomer?.id,
         address: formState.address,
@@ -512,59 +839,113 @@ const DeliveryNotes = () => {
         requirements: formState.requirements,
         transporterId: Number(formState.transporterId),
         driverId: Number(formState.driverId),
-        status: "draft",
+        truckType: formState.truckType,
+        status,
         quantities: qtyRows
           .filter((row) => row.description.trim() && Number(row.quantity) > 0)
           .map((row) => ({
             description: row.description.trim(),
-          quantity: Number(row.quantity),
-        })),
-      });
+            quantity: Number(row.quantity),
+          })),
+      };
+
+      let response;
+      if (savedNoteId) {
+        // Update existing DN
+        response = await api.put<DeliveryNoteResponse>(`/api/delivery-note/${savedNoteId}`, payload);
+      } else {
+        // Create new DN
+        response = await api.post<DeliveryNoteResponse>("/api/delivery-note", payload);
+      }
+
       setSavedNoteId(response.data.id);
-      setMessage("Delivery note saved.");
+      setDnStatus(response.data.status || status);
+      setMessage("Delivery Note saved successfully");
       setIsEditing(false);
-    } catch (e) {
+      setFieldsLocked(true); // Lock fields after save
+      await loadOrders();
+    } catch (e: unknown) {
       console.error(e);
-      setError("Failed to save delivery note.");
+      const errorMessage = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message 
+        || (e as { message?: string })?.message 
+        || "Failed to save delivery note.";
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
   };
 
-  const pdfAvailable = Boolean(savedNoteId);
+  const validateStock = async (): Promise<boolean> => {
+    // Stock validation would go here - check if quantities are available
+    // For now, we'll let the backend handle it
+    return true;
+  };
 
-  const handleDownloadPdf = async () => {
-    if (!savedNoteId) {
-      setError("Save the delivery note before downloading.");
+  const handleSave = async () => {
+    if (!formState.invoiceNumber.trim()) {
+      setError("Invoice number is required.");
       return;
     }
+    if (!selectedCustomer) {
+      setError("Customer is required.");
+      return;
+    }
+    if (!formState.transporterId) {
+      setError("Transporter is required.");
+      return;
+    }
+    if (!formState.driverId) {
+      setError("Driver is required.");
+      return;
+    }
+    if (!isValidQuantity()) {
+      setError("At least one item with quantity > 0 is required.");
+      return;
+    }
+    
+    // Validate stock availability
+    const stockValid = await validateStock();
+    if (!stockValid) {
+      setError("Insufficient stock for one or more items.");
+      return;
+    }
+
+    await executeSave("COMPLETE");
+  };
+
+
+  // Handle Download PDF - generates PDF from printable component
+  const handleDownloadPdf = async () => {
+    if (!savedNoteId && !selectedOrderId) {
+      setError("Please select an outbound or save the delivery note before downloading.");
+      return;
+    }
+
     try {
-      const response = await api.get<Blob>(`/api/delivery-note/${savedNoteId}/pdf`, {
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(response.data);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `DeliveryNote-${formState.dnNumber || savedNoteId}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      window.URL.revokeObjectURL(url);
+      // If saved, use backend PDF endpoint
+      if (savedNoteId) {
+        const filename = `DN_${formState.dnNumber || savedNoteId}.pdf`;
+        const response = await api.get<Blob>(`/api/delivery-note/${savedNoteId}/pdf`, {
+          responseType: "blob",
+        });
+        const url = window.URL.createObjectURL(response.data);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // For unsaved DNs, generate client-side PDF (requires html2pdf library)
+        setError("Please save the delivery note before downloading PDF.");
+      }
     } catch (err) {
       console.error(err);
       setError("Unable to download PDF.");
     }
   };
 
-  const handleEmail = () => {
-    if (!savedNoteId) {
-      setError("Save the delivery note before emailing.");
-      return;
-    }
-    setEmailError(null);
-    setEmailStatus(null);
-    setEmailModalOpen(true);
-  };
 
   const parseRecipients = (value: string) =>
     value
@@ -585,7 +966,7 @@ const DeliveryNotes = () => {
     setEmailSending(true);
     setEmailError(null);
     try {
-      await api.post(`/api/delivery-note/${savedNoteId}/email`, {
+      await api.post(`/delivery-note/${savedNoteId}/email`, {
         recipients,
         subject:
           emailForm.subject ||
@@ -593,7 +974,7 @@ const DeliveryNotes = () => {
         message: emailForm.message,
       });
       setEmailModalOpen(false);
-      setEmailStatus("Delivery note email queued.");
+      setMessage("Delivery note email queued.");
       setEmailForm({ recipients: "", subject: "", message: "" });
     } catch (err) {
       console.error(err);
@@ -603,39 +984,9 @@ const DeliveryNotes = () => {
     }
   };
 
-  const addQtyRow = () => {
-    if (qtyRows.length >= MAX_ROWS) return;
-    setQtyRows((prev) => [...prev, { description: "", quantity: "" }]);
-  };
 
-  const removeQtyRow = (index: number) => {
-    setQtyRows((prev) => prev.filter((_, idx) => idx !== index));
-  };
 
-  const updateQtyRow = (index: number, field: keyof QuantityRow, value: string) => {
-    setQtyRows((prev) =>
-      prev.map((row, idx) => (idx === index ? { ...row, [field]: value } : row))
-    );
-  };
 
-  const handleDriverSelect = (event: ChangeEvent<HTMLSelectElement>) => {
-    const driverId = event.target.value;
-    const selected = drivers.find((driver) => String(driver.id) === driverId);
-    if (selected) {
-      updateForm({
-        driverId: driverId,
-        driverName: selected.driverName,
-        driverNumber: selected.driverNumber,
-        driverIdNumber: selected.idNumber ?? "",
-      });
-    } else {
-      updateForm({
-        driverId: "",
-        driverName: "",
-        driverNumber: "",
-      });
-    }
-  };
 
   const handleTransporterCreate = async () => {
     if (!transporterForm.companyName.trim()) {
@@ -643,7 +994,7 @@ const DeliveryNotes = () => {
       return;
     }
     try {
-      const response = await api.post<TransporterDto>("/api/transporter", transporterForm);
+      const response = await api.post<TransporterDto>("/transporter", transporterForm);
       setTransporters((prev) => [...prev, response.data]);
       updateForm({ transporterId: String(response.data.id) });
       setShowTransporterModal(false);
@@ -660,13 +1011,14 @@ const DeliveryNotes = () => {
       return;
     }
     try {
-      const response = await api.post<DriverDto>("/api/driver", driverForm);
+      const response = await api.post<DriverDto>("/driver", driverForm);
       setDrivers((prev) => [...prev, response.data]);
       updateForm({
         driverId: String(response.data.id),
         driverName: response.data.driverName,
         driverNumber: response.data.driverNumber,
         driverIdNumber: response.data.idNumber ?? "",
+        truckType: response.data.truckNo ?? formState.truckType,
       });
       setShowDriverModal(false);
       setDriverForm({ driverName: "", driverNumber: "", idNumber: "", truckNo: "" });
@@ -684,6 +1036,7 @@ const DeliveryNotes = () => {
     }
   }, [customerSuggestions, customerFocus]);
 
+
   return (
     <section className="delivery-page">
       <div className="delivery-panel">
@@ -696,109 +1049,153 @@ const DeliveryNotes = () => {
             <button
               type="button"
               className="btn ghost"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                if (isFinalized) {
+                  setError("Cannot edit finalized delivery note.");
+                  return;
+                }
+                setIsEditing(!isEditing);
+                if (!isEditing) {
+                  setFieldsLocked(false); // Unlock fields when entering edit mode
+                }
+              }}
+              disabled={isFinalized}
             >
-              Edit
+              {isEditing ? "Cancel Edit" : "Edit"}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={handlePreview}
+              disabled={!selectedOrderId}
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={handleDownloadPdf}
+              disabled={!savedNoteId}
+            >
+              Download
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={handlePrint}
+              disabled={!savedNoteId && !isPrintPreviewOpen}
+            >
+              Print
             </button>
             <button
               type="button"
               className="btn teal"
               onClick={handleSave}
-              disabled={!isEditing || saving || !canSave}
+              disabled={saving || !canSave}
             >
               {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
 
-        <div className="order-selector">
-          <label>
-            Source Outbound Order
-            <select value={selectedOrderId ?? ""} onChange={handleOrderChange}>
-              <option value="">Choose an outbound order</option>
-              {orders
-                .filter((order) => !order.dnCreated)
-                .map((order) => (
+        <div className="delivery-outbound">
+          <div className="field-grid">
+            <label>
+              Outbound Number
+              <select
+                value={selectedOrderId ?? ""}
+                onChange={handleOutboundChange}
+                disabled={!canEditHeader}
+              >
+                <option value="">Select outbound</option>
+                {orders.map((order) => (
                   <option key={order.orderId} value={order.orderId}>
-                    {order.outboundNumber} · {order.customerName ?? "Customer"}
+                    {order.outboundNumber} · {order.customerName ?? "Customer"} · {order.invoiceNumber ?? "No Invoice"}
                   </option>
                 ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="delivery-outbound">
-          <label>
-            Outbound Number
-            <div className="input-with-addon">
+              </select>
+            </label>
+            <label>
+              Invoice Number
               <input
                 type="text"
-                value={formState.outboundNumber}
-                onChange={(event) =>
-                  updateForm({ outboundNumber: event.target.value })
-                }
-                readOnly={!formState.allowOutboundEdit}
-                placeholder="Auto-filled from picking"
+                value={formState.invoiceNumber}
+                onChange={(event) => updateForm({ invoiceNumber: event.target.value })}
+                placeholder="Invoice number"
+                readOnly={!canEditHeader}
               />
-              <button
-                type="button"
-                className="btn ghost small"
-                onClick={() =>
-                  updateForm({
-                    allowOutboundEdit: !formState.allowOutboundEdit,
-                  })
-                }
-              >
-                {formState.allowOutboundEdit ? "Locked" : "Admin override"}
-              </button>
-            </div>
-          </label>
-          <p className="muted">
-            Outbound is read-only until override is activated.
-          </p>
+            </label>
+            <label>
+              DN Number
+              <input
+                type="text"
+                value={formState.dnNumber}
+                onChange={(event) => updateForm({ dnNumber: event.target.value })}
+                placeholder="DN number"
+                readOnly={!canEditHeader}
+              />
+            </label>
+            <label>
+              DN Date
+              <input
+                type="date"
+                value={formState.dnDate ? new Date(formState.dnDate).toISOString().split('T')[0] : ''}
+                onChange={(event) => {
+                  const date = event.target.value ? new Date(event.target.value).toISOString() : '';
+                  updateForm({ dnDate: date });
+                }}
+                readOnly={!canEditDateAndRemarks}
+              />
+            </label>
+          </div>
         </div>
 
         <div className="delivery-section">
-          <h3>Customer Details</h3>
+          <div className="section-header">
+            <h3>Customer Details</h3>
+            {!selectedCustomer && (
+              <button
+                type="button"
+                className="btn ghost small"
+                onClick={() => setShowAddLocationModal(true)}
+              >
+                + Add Location
+              </button>
+            )}
+          </div>
           <div className="field-grid">
-            <label className="field-with-autosuggest">
-              Customer Id
-              <input
-                type="text"
-                value={customerQuery}
-                onChange={(event) => {
-                  setCustomerQuery(event.target.value);
-                  updateForm({ customerName: event.target.value, customerId: "" });
-                  setSelectedCustomer(null);
-                }}
-                onKeyDown={handleCustomerKeyDown}
-                placeholder="Search by ID or name"
-              />
-              {customerSuggestions.length > 0 && (
-                <ul className="suggestions-list">
-                  {customerSuggestions.map((customer, index) => (
-                    <li
-                      key={customer.id}
-                      className={index === customerFocus ? "active" : ""}
-                      onMouseDown={() => applyCustomer(customer)}
-                    >
-                      <strong>{customer.name}</strong>
-                      <span>{customer.city ?? customer.locationText}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </label>
             <label>
               Customer Name
               <input
                 type="text"
                 value={formState.customerName}
-                onChange={(event) =>
-                  updateForm({ customerName: event.target.value })
-                }
-                placeholder="Customer display name"
+                onChange={(event) => updateForm({ customerName: event.target.value })}
+                placeholder="Customer name"
+                readOnly={!canEditFields}
               />
+            </label>
+            <label>
+              Customer ID
+              <input
+                type="text"
+                value={formState.customerId}
+                onChange={(event) => {
+                  updateForm({ customerId: event.target.value });
+                  // Trigger lookup on change (debounced)
+                  handleCustomerIdChange(event.target.value);
+                }}
+                onBlur={(event) => {
+                  // Also trigger lookup on blur if value changed
+                  handleCustomerIdChange(event.target.value);
+                }}
+                placeholder="Customer ID"
+                readOnly={!canEditHeader || loadingCustomerById}
+              />
+              {loadingCustomerById && (
+                <span style={{ fontSize: "0.85em", color: "#94a3b8", marginLeft: "0.5rem" }}>
+                  Loading...
+                </span>
+              )}
             </label>
             <label>
               Location Type
@@ -806,10 +1203,10 @@ const DeliveryNotes = () => {
                 value={formState.customerLocationType}
                 onChange={(event) =>
                   updateForm({
-                    customerLocationType: event.target
-                      .value as typeof locationTypes[number],
+                    customerLocationType: event.target.value as typeof locationTypes[number],
                   })
                 }
+                disabled={!canEditFields}
               >
                 {locationTypes.map((type) => (
                   <option key={type} value={type}>
@@ -823,10 +1220,9 @@ const DeliveryNotes = () => {
               <input
                 type="text"
                 value={formState.customerLocationText}
-                onChange={(event) =>
-                  updateForm({ customerLocationText: event.target.value })
-                }
-                placeholder="Warehouse / office name, plot etc."
+                onChange={(event) => updateForm({ customerLocationText: event.target.value })}
+                placeholder="Location details"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -834,9 +1230,9 @@ const DeliveryNotes = () => {
               <input
                 type="text"
                 value={formState.address}
-                onChange={(event) =>
-                  updateForm({ address: event.target.value })
-                }
+                onChange={(event) => updateForm({ address: event.target.value })}
+                placeholder="Address"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -844,9 +1240,9 @@ const DeliveryNotes = () => {
               <input
                 type="url"
                 value={formState.googleMapLink}
-                onChange={(event) =>
-                  updateForm({ googleMapLink: event.target.value })
-                }
+                onChange={(event) => updateForm({ googleMapLink: event.target.value })}
+                placeholder="Google Map link"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -854,10 +1250,9 @@ const DeliveryNotes = () => {
               <input
                 type="email"
                 value={formState.customerEmail}
-                onChange={(event) =>
-                  updateForm({ customerEmail: event.target.value })
-                }
-                placeholder="customer@example.com"
+                onChange={(event) => updateForm({ customerEmail: event.target.value })}
+                placeholder="Email"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -865,10 +1260,9 @@ const DeliveryNotes = () => {
               <input
                 type="text"
                 value={formState.receiver1Name}
-                onChange={(event) =>
-                  updateForm({ receiver1Name: event.target.value })
-                }
-                placeholder="Primary receiver"
+                onChange={(event) => updateForm({ receiver1Name: event.target.value })}
+                placeholder="Receiver 1 name"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -877,10 +1271,9 @@ const DeliveryNotes = () => {
                 <input
                   type="tel"
                   value={formState.phone1}
-                  onChange={(event) =>
-                    updateForm({ phone1: event.target.value })
-                  }
-                  placeholder="Primary contact"
+                  onChange={(event) => updateForm({ phone1: event.target.value })}
+                  placeholder="Phone 1"
+                  readOnly={!canEditFields}
                 />
                 {formState.phone1 && (
                   <a
@@ -900,10 +1293,9 @@ const DeliveryNotes = () => {
               <input
                 type="text"
                 value={formState.receiver2Name}
-                onChange={(event) =>
-                  updateForm({ receiver2Name: event.target.value })
-                }
-                placeholder="Alternate receiver"
+                onChange={(event) => updateForm({ receiver2Name: event.target.value })}
+                placeholder="Receiver 2 name"
+                readOnly={!canEditFields}
               />
             </label>
             <label>
@@ -912,10 +1304,9 @@ const DeliveryNotes = () => {
                 <input
                   type="tel"
                   value={formState.phone2}
-                  onChange={(event) =>
-                    updateForm({ phone2: event.target.value })
-                  }
-                  placeholder="Secondary contact (optional)"
+                  onChange={(event) => updateForm({ phone2: event.target.value })}
+                  placeholder="Phone 2"
+                  readOnly={!canEditFields}
                 />
                 {formState.phone2 && (
                   <a
@@ -930,28 +1321,14 @@ const DeliveryNotes = () => {
                 )}
               </div>
             </label>
-            <div className="full-span">
-              <button
-                type="button"
-                className="btn teal small"
-                onClick={handleSaveCustomer}
-                disabled={savingCustomer}
-              >
-                {savingCustomer ? "Saving customer…" : "Save to customer list"}
-              </button>
-              <p className="muted">
-                New entries persist in the customer master for future use.
-              </p>
-            </div>
             <label className="full-span">
               Customer Requirements
               <textarea
                 rows={3}
                 value={formState.requirements}
-                onChange={(event) =>
-                  updateForm({ requirements: event.target.value })
-                }
-                placeholder="Additional instructions appear here"
+                onChange={(event) => updateForm({ requirements: event.target.value })}
+                placeholder="Requirements/remarks"
+                readOnly={!canEditDateAndRemarks}
               />
             </label>
           </div>
@@ -965,9 +1342,16 @@ const DeliveryNotes = () => {
               <div className="input-with-addon">
                 <select
                   value={formState.transporterId}
-                  onChange={(event) =>
-                    updateForm({ transporterId: event.target.value })
-                  }
+                  onChange={(event) => {
+                    const transporterId = event.target.value;
+                    const selected = transporters.find((t) => String(t.id) === transporterId);
+                    if (selected) {
+                      updateForm({ transporterId });
+                    } else {
+                      updateForm({ transporterId: "" });
+                    }
+                  }}
+                  disabled={!canEditFields}
                 >
                   <option value="">Select transporter</option>
                   {transporters.map((transporter) => (
@@ -980,11 +1364,34 @@ const DeliveryNotes = () => {
                   type="button"
                   className="btn ghost small"
                   onClick={() => setShowTransporterModal(true)}
+                  disabled={!canEditFields}
                 >
                   Add
                 </button>
               </div>
             </label>
+            {selectedTransporter && (
+              <>
+                <label>
+                  Transporter Contact
+                  <input
+                    type="text"
+                    value={selectedTransporter.contactName ?? ""}
+                    readOnly
+                    placeholder="Auto-filled from transporter database"
+                  />
+                </label>
+                <label>
+                  Transporter Email
+                  <input
+                    type="email"
+                    value={selectedTransporter.email ?? ""}
+                    readOnly
+                    placeholder="Auto-filled from transporter database"
+                  />
+                </label>
+              </>
+            )}
             <label>
               Type of Truck
               <select
@@ -992,6 +1399,7 @@ const DeliveryNotes = () => {
                 onChange={(event) =>
                   updateForm({ truckType: event.target.value })
                 }
+                disabled={!canEditFields}
               >
                 {truckTypes.map((type) => (
                   <option key={type} value={type}>
@@ -1001,51 +1409,67 @@ const DeliveryNotes = () => {
               </select>
             </label>
             <label className="full-span">
-              Quantity Under 9
+              Items (Auto-loaded from order - editable)
               <div className="qty-table">
                 {qtyRows.map((row, index) => (
                   <div key={index} className="qty-row">
                     <input
                       type="text"
                       value={row.description}
-                      onChange={(event) =>
-                        updateQtyRow(index, "description", event.target.value)
-                      }
+                      onChange={(e) => {
+                        const newRows = [...qtyRows];
+                        newRows[index] = { ...newRows[index], description: e.target.value };
+                        setQtyRows(newRows);
+                      }}
                       placeholder="Item description"
+                      disabled={isFinalized}
                     />
                     <input
                       type="number"
                       min={1}
                       value={row.quantity}
-                      onChange={(event) =>
-                        updateQtyRow(index, "quantity", event.target.value)
-                      }
+                      onChange={(e) => {
+                        const newRows = [...qtyRows];
+                        newRows[index] = { ...newRows[index], quantity: e.target.value };
+                        setQtyRows(newRows);
+                      }}
                       placeholder="Qty"
+                      disabled={isFinalized}
                     />
-                    <button
-                      type="button"
-                      className="btn ghost tiny"
-                      onClick={() => removeQtyRow(index)}
-                      disabled={qtyRows.length === 1}
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  className="btn borderless"
-                  onClick={addQtyRow}
-                  disabled={qtyRows.length >= MAX_ROWS}
-                >
-                  + Add row
-                </button>
+                {qtyRows.length === 0 && (
+                  <p className="muted">Items will be loaded automatically when outbound is selected.</p>
+                )}
               </div>
             </label>
             <label>
               Driver Name
               <div className="input-with-addon">
-                <select value={formState.driverId} onChange={handleDriverSelect}>
+                <select
+                  value={formState.driverId}
+                  onChange={(event) => {
+                    const driverId = event.target.value;
+                    const selected = drivers.find((d) => String(d.id) === driverId);
+                    if (selected) {
+                      updateForm({
+                        driverId: driverId,
+                        driverName: selected.driverName,
+                        driverNumber: selected.driverNumber,
+                        driverIdNumber: selected.idNumber ?? "",
+                        truckType: selected.truckNo ?? formState.truckType,
+                      });
+                    } else {
+                      updateForm({
+                        driverId: "",
+                        driverName: "",
+                        driverNumber: "",
+                        driverIdNumber: "",
+                      });
+                    }
+                  }}
+                  disabled={!canEditFields}
+                >
                   <option value="">Select driver</option>
                   {drivers.map((driver) => (
                     <option key={driver.id} value={driver.id}>
@@ -1057,36 +1481,43 @@ const DeliveryNotes = () => {
                   type="button"
                   className="btn ghost small"
                   onClick={() => setShowDriverModal(true)}
+                  disabled={!canEditFields}
                 >
                   Add
                 </button>
               </div>
             </label>
-            <label>
-              Driver Number
-              <input
-                type="text"
-                value={formState.driverNumber}
-                onChange={(event) =>
-                  updateForm({ driverNumber: event.target.value })
-                }
-              />
-            </label>
-            <label>
-              Driver ID (Iqama)
-              <input
-                type="text"
-                value={formState.driverIdNumber}
-                onChange={(event) =>
-                  updateForm({ driverIdNumber: event.target.value })
-                }
-                placeholder="Iqama number"
-              />
-            </label>
-            <label>
-              Outbound Number (copy)
-              <input type="text" value={formState.outboundNumber} readOnly />
-            </label>
+            {selectedDriver && (
+              <>
+                <label>
+                  Driver Number
+                  <input
+                    type="text"
+                    value={formState.driverNumber}
+                    readOnly
+                    placeholder="Auto-filled from driver database"
+                  />
+                </label>
+                <label>
+                  Driver ID (Iqama)
+                  <input
+                    type="text"
+                    value={formState.driverIdNumber}
+                    readOnly
+                    placeholder="Auto-filled from driver database"
+                  />
+                </label>
+                <label>
+                  Truck Number
+                  <input
+                    type="text"
+                    value={selectedDriver.truckNo ?? ""}
+                    readOnly
+                    placeholder="Auto-filled from driver database"
+                  />
+                </label>
+              </>
+            )}
           </div>
         </div>
 
@@ -1127,25 +1558,6 @@ const DeliveryNotes = () => {
         {message && <div className="banner success">{message}</div>}
       </div>
 
-      <div className="delivery-placeholder">
-        {!selectedOrderId ? (
-          <div className="placeholder">
-            <p>Select an outbound order to preview the delivery note</p>
-          </div>
-        ) : (
-          <DNPreview
-            {...previewProps}
-            onPrint={openPrintPreview}
-            onDownload={handleDownloadPdf}
-            onEmail={handleEmail}
-            actionsDisabled={!pdfAvailable}
-            printEnabled={true}
-          />
-        )}
-        {emailStatus && (
-          <div className="banner success email-banner">{emailStatus}</div>
-        )}
-      </div>
 
       <PrintPreviewModal
         isOpen={isPrintPreviewOpen}
@@ -1153,11 +1565,9 @@ const DeliveryNotes = () => {
         onPrint={handleModalPrint}
         title={`Delivery Note ${formState.dnNumber || "TBD"}`}
         preview={
-          <DNPreview
-            {...previewProps}
-            hideControls
-            actionsDisabled={false}
-            printEnabled={true}
+          <DeliveryNotePrint
+            data={buildPrintData()}
+            className="preview-mode"
           />
         }
       />
@@ -1291,6 +1701,202 @@ const DeliveryNotes = () => {
         </div>
       )}
 
+      {showLocationModal && locationOptions.length > 0 && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Select Customer Location</h3>
+              <button className="btn tiny" onClick={() => setShowLocationModal(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="muted">Multiple locations found for this customer. Choose one.</p>
+              <div className="selection-list">
+                {locationOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className="selection-item"
+                    onClick={() => {
+                      applyCustomer(option);
+                      setShowLocationModal(false);
+                    }}
+                  >
+                    <strong>{option.name ?? "Customer"}</strong>
+                    <span>{option.locationText || option.city || "No location details"}</span>
+                    <span>{option.receiver1Name || option.receiver1Contact || "-"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddLocationModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Add Location</h3>
+              <button className="btn tiny" onClick={() => setShowAddLocationModal(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <label>
+                  Location Type
+                  <select
+                    value={locationForm.customerLocationType}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        customerLocationType: event.target
+                          .value as typeof locationTypes[number],
+                      }))
+                    }
+                  >
+                    {locationTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Location Name
+                  <input
+                    className="search-input"
+                    value={locationForm.customerLocationText}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        customerLocationText: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Address
+                  <input
+                    className="search-input"
+                    value={locationForm.address}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({ ...prev, address: event.target.value }))
+                    }
+                  />
+                </label>
+                <label>
+                  Google Map Link
+                  <input
+                    className="search-input"
+                    value={locationForm.googleMapLink}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        googleMapLink: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    className="search-input"
+                    value={locationForm.customerEmail}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        customerEmail: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Receiver 1
+                  <input
+                    className="search-input"
+                    value={locationForm.receiver1Name}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        receiver1Name: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Phone 1
+                  <input
+                    className="search-input"
+                    value={locationForm.phone1}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        phone1: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Receiver 2
+                  <input
+                    className="search-input"
+                    value={locationForm.receiver2Name}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        receiver2Name: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Phone 2
+                  <input
+                    className="search-input"
+                    value={locationForm.phone2}
+                    onChange={(event) =>
+                      setLocationForm((prev) => ({
+                        ...prev,
+                        phone2: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setShowAddLocationModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn primary"
+                onClick={() => {
+                  updateForm({
+                    customerLocationType: locationForm.customerLocationType,
+                    customerLocationText: locationForm.customerLocationText,
+                    address: locationForm.address,
+                    googleMapLink: locationForm.googleMapLink,
+                    customerEmail: locationForm.customerEmail,
+                    receiver1Name: locationForm.receiver1Name,
+                    receiver2Name: locationForm.receiver2Name,
+                    phone1: locationForm.phone1,
+                    phone2: locationForm.phone2,
+                  });
+                  setShowAddLocationModal(false);
+                }}
+              >
+                Use Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
       {emailModalOpen && (
         <div className="modal-backdrop">
           <div className="modal">
@@ -1354,6 +1960,55 @@ const DeliveryNotes = () => {
                 onClick={() => setEmailModalOpen(false)}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMissingCustomerMasterModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h4>Customer Not Found</h4>
+            <div style={{ marginBottom: "1rem" }}>
+              {missingCustomerSapId ? (
+                <>
+                  <p style={{ fontSize: "1.1em", fontWeight: "bold", color: "#333", marginBottom: "0.5rem" }}>
+                    Customer ID: <span style={{ color: "#0066cc" }}>{missingCustomerSapId}</span>
+                  </p>
+                  <p>
+                    The customer record is not found in the Customers table.
+                    Please add the customer to continue, or cancel to clear the Customer ID field.
+                  </p>
+                </>
+              ) : (
+                <p>Customer record not found. Please add the customer or cancel.</p>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  setShowMissingCustomerMasterModal(false);
+                  setMissingCustomerSapId(null);
+                  // Clear Customer ID field
+                  updateForm({ customerId: "" });
+                  setSelectedCustomer(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn primary"
+                onClick={() => {
+                  // Navigate to Customers page to add customer
+                  const url = missingCustomerSapId 
+                    ? `/customers?sapCustomerId=${encodeURIComponent(missingCustomerSapId)}`
+                    : "/customers";
+                  window.location.href = url;
+                }}
+              >
+                Add New Customer {missingCustomerSapId ? `(ID: ${missingCustomerSapId})` : ""}
               </button>
             </div>
           </div>

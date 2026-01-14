@@ -56,6 +56,7 @@ public class CustomerImportService {
     int imported = 0;
     int total = 0;
     Set<String> seenSapIds = new HashSet<>();
+    List<Customer> pendingCustomers = new ArrayList<>();
 
     try (InputStream inputStream = file.getInputStream();
         Workbook workbook = WorkbookFactory.create(inputStream)) {
@@ -82,6 +83,11 @@ public class CustomerImportService {
         errors.add(new CustomerImportErrorDto(0, "Missing required column: SAP Customer ID"));
         return new CustomerImportResultDto(total, imported, errors, storedPath);
       }
+      Integer nameIndex = findHeader(headerIndex, "customer name", "name", "customer_name", "customername");
+      if (nameIndex == null) {
+        errors.add(new CustomerImportErrorDto(0, "Missing required column: Customer Name"));
+        return new CustomerImportResultDto(total, imported, errors, storedPath);
+      }
 
       while (iterator.hasNext()) {
         Row row = iterator.next();
@@ -100,9 +106,9 @@ public class CustomerImportService {
           continue;
         }
 
-        String name = getCellValue(row, headerIndex.get("name"));
+        String name = getCellValue(row, nameIndex);
         if (name.isBlank()) {
-          errors.add(new CustomerImportErrorDto(row.getRowNum() + 1, "Name is required"));
+          errors.add(new CustomerImportErrorDto(row.getRowNum() + 1, "Customer Name is required"));
           continue;
         }
 
@@ -117,15 +123,22 @@ public class CustomerImportService {
           if (existing.getId() == null) {
             existing.setCreatedAt(Instant.now());
           }
-          customerRepository.save(existing);
-          imported++;
+          pendingCustomers.add(existing);
         } catch (Exception ex) {
-          log.error("Failed to import row {}: {}", row.getRowNum(), ex.getMessage());
+          log.error("Failed to parse row {}: {}", row.getRowNum(), ex.getMessage());
           errors.add(
               new CustomerImportErrorDto(
-                  row.getRowNum() + 1, "Unable to persist row: " + ex.getMessage()));
+                  row.getRowNum() + 1, "Unable to read row: " + ex.getMessage()));
         }
       }
+    }
+    if (!errors.isEmpty()) {
+      return new CustomerImportResultDto(total, imported, errors, storedPath);
+    }
+
+    for (Customer customer : pendingCustomers) {
+      customerRepository.save(customer);
+      imported++;
     }
 
     return new CustomerImportResultDto(total, imported, errors, storedPath);
@@ -190,24 +203,25 @@ public class CustomerImportService {
 
   private void populateCustomer(
       Row row, Map<String, Integer> headerIndex, Customer customer) {
-    customer.setName(getCellValue(row, headerIndex.get("name")));
-    customer.setCity(getCellValue(row, headerIndex.get("city")));
-    customer.setLocationText(getCellValue(row, headerIndex.get("location text")));
-    customer.setGoogleLocation(getCellValue(row, headerIndex.get("google location")));
-    customer.setReceiver1Name(getCellValue(row, headerIndex.get("receiver1 name")));
-    customer.setReceiver1Contact(getCellValue(row, headerIndex.get("receiver1 contact")));
-    customer.setReceiver1Email(getCellValue(row, headerIndex.get("receiver1 email")));
+    Integer nameIndex = findHeader(headerIndex, "customer name", "name", "customer_name", "customername");
+    customer.setName(getCellValue(row, nameIndex));
+    customer.setCity(getCellValue(row, findHeader(headerIndex, "city")));
+    customer.setLocationText(getCellValue(row, findHeader(headerIndex, "location text", "location_text")));
+    customer.setGoogleLocation(getCellValue(row, findHeader(headerIndex, "google location", "google_location")));
+    customer.setReceiver1Name(getCellValue(row, findHeader(headerIndex, "receiver1 name", "receiver1_name")));
+    customer.setReceiver1Contact(getCellValue(row, findHeader(headerIndex, "receiver1 contact", "receiver1_contact")));
+    customer.setReceiver1Email(getCellValue(row, findHeader(headerIndex, "receiver1 email", "receiver1_email")));
     customer.setReceiver1Designation(
-        getCellValue(row, headerIndex.get("receiver1 designation")));
-    customer.setReceiver2Name(getCellValue(row, headerIndex.get("receiver2 name")));
-    customer.setReceiver2Contact(getCellValue(row, headerIndex.get("receiver2 contact")));
-    customer.setReceiver2Email(getCellValue(row, headerIndex.get("receiver2 email")));
+        getCellValue(row, findHeader(headerIndex, "receiver1 designation", "receiver1_designation")));
+    customer.setReceiver2Name(getCellValue(row, findHeader(headerIndex, "receiver2 name", "receiver2_name")));
+    customer.setReceiver2Contact(getCellValue(row, findHeader(headerIndex, "receiver2 contact", "receiver2_contact")));
+    customer.setReceiver2Email(getCellValue(row, findHeader(headerIndex, "receiver2 email", "receiver2_email")));
     customer.setReceiver2Designation(
-        getCellValue(row, headerIndex.get("receiver2 designation")));
-    customer.setRequirements(getCellValue(row, headerIndex.get("requirements")));
-    Integer notesIndex = findHeader(headerIndex, "notes", "remarks", "notes/remarks");
+        getCellValue(row, findHeader(headerIndex, "receiver2 designation", "receiver2_designation")));
+    customer.setRequirements(getCellValue(row, findHeader(headerIndex, "requirements")));
+    Integer notesIndex = findHeader(headerIndex, "notes", "remarks", "notes/remarks", "notes_remarks");
     customer.setNotes(getCellValue(row, notesIndex));
-    Integer activeIndex = findHeader(headerIndex, "is active", "active");
+    Integer activeIndex = findHeader(headerIndex, "is active", "active", "is_active");
     String activeValue = getCellValue(row, activeIndex);
     if (!activeValue.isBlank()) {
       customer.setActive(Boolean.parseBoolean(activeValue));
@@ -258,7 +272,8 @@ public class CustomerImportService {
       return "";
     }
     String cleaned = value.trim().replace("*", "").replace("/", " ");
-    return cleaned.replaceAll("\\s+", " ").trim().toLowerCase();
+    cleaned = cleaned.replaceAll("[\\s_-]+", "");
+    return cleaned.toLowerCase();
   }
 
   private void addRequiredValidation(

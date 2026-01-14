@@ -14,12 +14,12 @@ import com.godam.masters.Transporter;
 import com.godam.masters.repository.CustomerRepository;
 import com.godam.masters.repository.DriverRepository;
 import com.godam.masters.repository.TransporterRepository;
-import com.godam.orders.dto.OrderItemDto;
-import com.godam.orders.dto.OrderViewDto;
-import com.godam.orders.service.OrdersService;
+import com.godam.orders.OrderWorkflow;
+import com.godam.orders.repository.OrderWorkflowRepository;
 import jakarta.validation.Valid;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -37,45 +37,155 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class DeliveryNoteSupportController {
-  private final OrdersService ordersService;
   private final CustomerRepository customerRepository;
   private final DriverRepository driverRepository;
   private final TransporterRepository transporterRepository;
+  private final OrderWorkflowRepository orderWorkflowRepository;
 
   public DeliveryNoteSupportController(
-      OrdersService ordersService,
       CustomerRepository customerRepository,
       DriverRepository driverRepository,
-      TransporterRepository transporterRepository) {
-    this.ordersService = ordersService;
+      TransporterRepository transporterRepository,
+      OrderWorkflowRepository orderWorkflowRepository) {
     this.customerRepository = customerRepository;
     this.driverRepository = driverRepository;
     this.transporterRepository = transporterRepository;
+    this.orderWorkflowRepository = orderWorkflowRepository;
   }
 
   @GetMapping("/outbound/{orderId}")
   public OutboundInfoDto outbound(@PathVariable("orderId") Long orderId) {
-    OrderViewDto orderView = ordersService.getOrder(orderId);
-    if (orderView == null || orderView.getSummary() == null) {
-      throw new com.godam.common.exception.ResourceNotFoundException("Order not found: " + orderId);
-    }
+    // Get order with transport data
+    OrderWorkflow order = orderWorkflowRepository.findDetailedById(orderId)
+        .orElseThrow(() -> new com.godam.common.exception.ResourceNotFoundException("Order not found: " + orderId));
+    
     OutboundInfoDto info = new OutboundInfoDto();
-    info.setOrderId(orderView.getSummary().getOrderId());
-    info.setOutboundNumber(orderView.getSummary().getOutboundNumber());
-    info.setCustomerName(orderView.getSummary().getCustomerName());
-    info.setGappPo(orderView.getSummary().getGappPo());
-    info.setCustomerPo(orderView.getSummary().getCustomerPo());
-    List<String> itemNumbers = orderView.getItems().stream()
-        .map(OrderItemDto::getPartNumber)
-        .collect(Collectors.toList());
+    info.setOrderId(order.getId());
+    info.setOutboundNumber(order.getOutboundNumber());
+    info.setCustomerName(order.getCustomerName());
+    info.setCustomerId(order.getCustomerId());
+    info.setGappPo(order.getGappPo());
+    info.setCustomerPo(order.getCustomerPo());
+    
+    // Get item part numbers
+    List<String> itemNumbers = order.getItems() != null
+        ? order.getItems().stream()
+            .map(item -> item.getPartNumber() != null ? item.getPartNumber() : "")
+            .filter(part -> !part.isEmpty())
+            .collect(Collectors.toList())
+        : new ArrayList<>();
     info.setItemNumbers(itemNumbers);
+    
+    // Get transporter_id and driver_id from order transport
+    if (order.getTransport() != null) {
+      info.setTransporterId(order.getTransport().getTransporterId());
+      info.setDriverId(order.getTransport().getDriverId());
+    }
+    
     return info;
+  }
+
+  @GetMapping("/customer/{id}")
+  public CustomerLookupDto getCustomerById(@PathVariable("id") Long id) {
+    Customer customer = customerRepository
+        .findById(id)
+        .orElseThrow(
+            () ->
+                new com.godam.common.exception.ResourceNotFoundException(
+                    "Customer not found: " + id));
+    return toCustomerLookup(customer);
+  }
+
+  @GetMapping("/customer/by-sap-id/{sapCustomerId}")
+  public CustomerLookupDto getCustomerBySapId(@PathVariable("sapCustomerId") String sapCustomerId) {
+    Customer customer = customerRepository
+        .findBySapCustomerIdIgnoreCase(sapCustomerId)
+        .orElseThrow(
+            () ->
+                new com.godam.common.exception.ResourceNotFoundException(
+                    "Customer not found with SAP ID: " + sapCustomerId));
+    return toCustomerLookup(customer);
+  }
+
+  @GetMapping("/customer/lookup-sap-id/{sapCustomerId}")
+  public CustomerLookupResult lookupCustomersBySapId(@PathVariable("sapCustomerId") String sapCustomerId) {
+    List<Customer> customers = customerRepository.findAllBySapCustomerIdIgnoreCase(sapCustomerId);
+    CustomerLookupResult result = new CustomerLookupResult();
+    result.setExists(!customers.isEmpty());
+    result.setSapCustomerId(sapCustomerId);
+    result.setCustomers(customers.stream().map(this::toCustomerLookup).collect(Collectors.toList()));
+    if (!customers.isEmpty()) {
+      // Return the first customer's name for pre-fill
+      result.setCustomerName(customers.get(0).getName());
+    }
+    return result;
+  }
+
+  @PostMapping("/customer/add-location")
+  @Transactional
+  public CustomerLookupDto createCustomerWithDuplicateSapId(@Valid @RequestBody CustomerCreateRequest request) {
+    // This endpoint allows creating customers with duplicate SAP Customer IDs
+    // for cases where same customer has multiple delivery locations
+    Customer customer = new Customer();
+    customer.setName(request.getName());
+    customer.setSapCustomerId(request.getSapCustomerId());
+    customer.setCity(request.getCity());
+    customer.setLocationText(request.getLocationText());
+    customer.setGoogleLocation(request.getGoogleLocation());
+    customer.setReceiver1Name(request.getReceiver1Name());
+    customer.setReceiver1Contact(request.getReceiver1Contact());
+    customer.setReceiver1Email(request.getReceiver1Email());
+    customer.setRequirements(request.getRequirements());
+    customer.setNotes(request.getNotes());
+    customer.setActive(true);
+    customer.setCreatedAt(Instant.now());
+    Customer saved = customerRepository.save(customer);
+    return toCustomerLookup(saved);
+  }
+
+  public static class CustomerLookupResult {
+    private boolean exists;
+    private String sapCustomerId;
+    private String customerName;
+    private List<CustomerLookupDto> customers;
+
+    public boolean isExists() {
+      return exists;
+    }
+
+    public void setExists(boolean exists) {
+      this.exists = exists;
+    }
+
+    public String getSapCustomerId() {
+      return sapCustomerId;
+    }
+
+    public void setSapCustomerId(String sapCustomerId) {
+      this.sapCustomerId = sapCustomerId;
+    }
+
+    public String getCustomerName() {
+      return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+      this.customerName = customerName;
+    }
+
+    public List<CustomerLookupDto> getCustomers() {
+      return customers;
+    }
+
+    public void setCustomers(List<CustomerLookupDto> customers) {
+      this.customers = customers;
+    }
   }
 
   @GetMapping("/customer/search")
   public List<CustomerLookupDto> searchCustomers(@RequestParam(name = "q", required = false) String query) {
     List<Customer> customers = (query == null || query.isBlank())
-        ? customerRepository.findTop20ByActiveTrueOrderByNameAsc()
+        ? customerRepository.findAllByActiveTrueOrderByNameAsc()
         : customerRepository.searchActive(query);
     return customers.stream()
         .map(this::toCustomerLookup)
@@ -203,7 +313,12 @@ public class DeliveryNoteSupportController {
     dto.setRequirements(customer.getRequirements());
     dto.setReceiver1Name(customer.getReceiver1Name());
     dto.setReceiver1Email(customer.getReceiver1Email());
+    dto.setReceiver1Designation(customer.getReceiver1Designation());
+    dto.setReceiver2Name(customer.getReceiver2Name());
+    dto.setReceiver2Email(customer.getReceiver2Email());
+    dto.setReceiver2Designation(customer.getReceiver2Designation());
     dto.setNotes(customer.getNotes());
+    dto.setActive(customer.isActive());
     return dto;
   }
 

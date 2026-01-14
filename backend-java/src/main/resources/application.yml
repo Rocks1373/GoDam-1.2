@@ -1,6 +1,7 @@
 spring:
+  profiles:
+    default: local
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/godam}
     username: ${SPRING_DATASOURCE_USERNAME:godam}
     password: ${SPRING_DATASOURCE_PASSWORD:godampass}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
@@ -27,6 +28,7 @@ spring:
             enable: ${SMTP_STARTTLS:true}
 server:
   port: ${PORT:8080}
+  address: ${SERVER_ADDRESS:0.0.0.0}  # Bind to all interfaces to allow emulator connections
 
 # Logging configuration
 logging:
@@ -35,3 +37,18 @@ logging:
     com.godam: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  health:
+    mail:
+      enabled: false
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html

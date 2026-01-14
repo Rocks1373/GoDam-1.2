@@ -96,6 +96,9 @@
         <p class="section-content">
           Outbound #: <strong th:text="${dn.outboundNumber} ?: '—'"></strong>
         </p>
+        <p class="section-content">
+          Invoice #: <strong th:text="${dn.invoiceNumber} ?: '—'"></strong>
+        </p>
         <p class="section-content" th:text="${#dates.format(#dates.createNow(), 'dd MMM yyyy')}"></p>
       </div>
       <div>

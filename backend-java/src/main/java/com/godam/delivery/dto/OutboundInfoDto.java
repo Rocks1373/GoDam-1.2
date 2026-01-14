@@ -7,9 +7,12 @@ public class OutboundInfoDto {
   private Long orderId;
   private String outboundNumber;
   private String customerName;
+  private String customerId;
   private String gappPo;
   private String customerPo;
   private List<String> itemNumbers = new ArrayList<>();
+  private Long transporterId;
+  private Long driverId;
 
   public Long getOrderId() {
     return orderId;
@@ -35,6 +38,14 @@ public class OutboundInfoDto {
     this.customerName = customerName;
   }
 
+  public String getCustomerId() {
+    return customerId;
+  }
+
+  public void setCustomerId(String customerId) {
+    this.customerId = customerId;
+  }
+
   public String getGappPo() {
     return gappPo;
   }
@@ -57,5 +68,21 @@ public class OutboundInfoDto {
 
   public void setItemNumbers(List<String> itemNumbers) {
     this.itemNumbers = itemNumbers;
+  }
+
+  public Long getTransporterId() {
+    return transporterId;
+  }
+
+  public void setTransporterId(Long transporterId) {
+    this.transporterId = transporterId;
+  }
+
+  public Long getDriverId() {
+    return driverId;
+  }
+
+  public void setDriverId(Long driverId) {
+    this.driverId = driverId;
   }
 }
